@@ -23,6 +23,9 @@ importers:
       '@types/mocha':
         specifier: ^10.0.10
         version: 10.0.10
+      '@types/node':
+        specifier: ^25.3.3
+        version: 25.3.3
       chai:
         specifier: ^6.2.2
         version: 6.2.2
@@ -990,7 +993,7 @@ snapshots:
 
   '@types/connect@3.4.38':
     dependencies:
-      '@types/node': 12.20.55
+      '@types/node': 25.3.3
 
   '@types/deep-eql@4.0.2': {}
 
@@ -1006,7 +1009,7 @@ snapshots:
 
   '@types/ws@7.4.7':
     dependencies:
-      '@types/node': 12.20.55
+      '@types/node': 25.3.3
 
   '@types/ws@8.18.1':
     dependencies:
