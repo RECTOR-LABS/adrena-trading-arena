@@ -156,7 +156,7 @@ describe('PositionManager', () => {
 
   describe('executeSignal', () => {
     it('returns hold on HOLD signal', async () => {
-      const result = await pm.executeSignal('HOLD', makeMarket(100), null);
+      const result = await pm.executeSignal('HOLD', makeMarket(100), null, OWNER, CUSTODY);
       expect(result.action).toBe('hold');
       expect(trader.executedTrades).toHaveLength(0);
     });
@@ -179,20 +179,20 @@ describe('PositionManager', () => {
 
     it('closes existing long position on CLOSE signal', async () => {
       const pos = makeLongPosition(100);
-      const result = await pm.executeSignal('CLOSE', makeMarket(105), pos);
+      const result = await pm.executeSignal('CLOSE', makeMarket(105), pos, OWNER, CUSTODY);
       expect(result.action).toBe('closed_long');
       expect(result.txSig).toBeDefined();
     });
 
     it('closes existing short position on CLOSE signal', async () => {
       const pos = makeShortPosition(100);
-      const result = await pm.executeSignal('CLOSE', makeMarket(95), pos);
+      const result = await pm.executeSignal('CLOSE', makeMarket(95), pos, OWNER, CUSTODY);
       expect(result.action).toBe('closed_short');
       expect(result.txSig).toBeDefined();
     });
 
     it('returns hold on CLOSE signal with no position', async () => {
-      const result = await pm.executeSignal('CLOSE', makeMarket(100), null);
+      const result = await pm.executeSignal('CLOSE', makeMarket(100), null, OWNER, CUSTODY);
       expect(result.action).toBe('hold');
       expect(result.reason).toContain('no open position');
     });
@@ -218,14 +218,14 @@ describe('PositionManager', () => {
     it('triggers stop-loss before processing signal', async () => {
       const pos = makeLongPosition(100);
       // Price dropped 7% — exceeds 5% stop-loss
-      const result = await pm.executeSignal('HOLD', makeMarket(93), pos);
+      const result = await pm.executeSignal('HOLD', makeMarket(93), pos, OWNER, CUSTODY);
       expect(result.action).toBe('closed_long');
     });
 
     it('triggers take-profit before processing signal', async () => {
       const pos = makeLongPosition(100);
       // Price rose 12% — exceeds 10% take-profit
-      const result = await pm.executeSignal('HOLD', makeMarket(112), pos);
+      const result = await pm.executeSignal('HOLD', makeMarket(112), pos, OWNER, CUSTODY);
       expect(result.action).toBe('closed_long');
     });
   });

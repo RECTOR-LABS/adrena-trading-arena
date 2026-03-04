@@ -29,8 +29,8 @@ export class PositionManager {
     signal: Signal,
     market: MarketState,
     currentPosition: PositionInfo | null,
-    owner?: PublicKey,
-    custody?: PublicKey,
+    owner: PublicKey,
+    custody: PublicKey,
   ): Promise<TradeResult> {
     // Risk checks always take priority — stop-loss / take-profit regardless of signal
     if (currentPosition) {
@@ -72,8 +72,8 @@ export class PositionManager {
       return { action: 'blocked', reason: 'Position size too small' };
     }
 
-    const tradeOwner = owner ?? currentPosition?.owner ?? PublicKey.default;
-    const tradeCustody = custody ?? currentPosition?.custody ?? PublicKey.default;
+    const tradeOwner = owner;
+    const tradeCustody = custody;
     const leverage = this.riskParams.maxLeverage;
     const slippageBps = 50; // 0.5% default slippage tolerance
 
@@ -123,6 +123,7 @@ export class PositionManager {
 
   /** Update the capital amount (e.g., after PnL realization). */
   setCapital(capital: number): void {
+    if (capital < 0) throw new Error('Capital cannot be negative');
     this.capital = capital;
   }
 

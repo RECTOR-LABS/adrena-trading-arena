@@ -5,6 +5,7 @@ import { MockAdrenaTrader } from '../client/adrena-wrapper';
 import { MockPriceFeed } from '../market/price-feed';
 import type { ArenaStrategy, MarketState, Signal } from '../types';
 
+const OWNER = PublicKey.unique();
 const MINT = PublicKey.unique();
 const CUSTODY = PublicKey.unique();
 
@@ -40,6 +41,7 @@ describe('AgentExecutor', () => {
       priceFeed,
       capital: 10_000,
       tickIntervalMs: 1000,
+      owner: OWNER,
       mint: MINT,
       custody: CUSTODY,
       symbol: 'SOL/USD',
