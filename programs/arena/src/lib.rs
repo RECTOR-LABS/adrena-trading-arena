@@ -36,4 +36,32 @@ pub mod arena {
   pub fn retire_agent(ctx: Context<RetireAgent>) -> Result<()> {
     instructions::retire_agent::handler(ctx)
   }
+
+  pub fn create_competition(ctx: Context<CreateCompetition>, args: CreateCompetitionArgs) -> Result<()> {
+    instructions::create_competition::handler(ctx, args)
+  }
+
+  pub fn enroll_agent(ctx: Context<EnrollAgent>) -> Result<()> {
+    instructions::enroll_agent::handler(ctx)
+  }
+
+  pub fn start_competition(ctx: Context<StartCompetition>) -> Result<()> {
+    instructions::start_competition::handler(ctx)
+  }
+
+  pub fn submit_scores<'info>(ctx: Context<'_, '_, 'info, 'info, SubmitScores<'info>>, scores: Vec<ScoreEntry>) -> Result<()> {
+    instructions::submit_scores::handler(ctx, scores)
+  }
+
+  pub fn settle_competition(ctx: Context<SettleCompetition>) -> Result<()> {
+    instructions::settle_competition::handler(ctx)
+  }
+
+  pub fn claim_prize(ctx: Context<ClaimPrize>) -> Result<()> {
+    instructions::claim_prize::handler(ctx)
+  }
+
+  pub fn disqualify_agent(ctx: Context<DisqualifyAgent>) -> Result<()> {
+    instructions::disqualify_agent::handler(ctx)
+  }
 }
