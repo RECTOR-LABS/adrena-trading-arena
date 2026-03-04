@@ -23,6 +23,7 @@ dist/
 # Solana
 test-ledger/
 *.so
+!tests/fixtures/*.so
 
 # Logs
 *.log
