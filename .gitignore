@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+target/
+
+# Build
+.next/
+out/
+dist/
+.anchor/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Solana
+test-ledger/
+*.so
+
+# Logs
+*.log
+
+# Database
+*.db
