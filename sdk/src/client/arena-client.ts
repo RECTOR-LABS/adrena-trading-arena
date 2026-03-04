@@ -142,6 +142,7 @@ export class ArenaClient {
    */
   async getLeaderboard(competitionId: number): Promise<LeaderboardEntry[]> {
     const [competitionPda] = this.getCompetitionPda(competitionId);
+    // Uses memcmp filter once IDL is finalized; currently fetches all enrollments
     const raw = await this.program.account['enrollment'].all();
 
     const entries = raw
@@ -171,50 +172,58 @@ export class ArenaClient {
 // that should be verified once the IDL is generated.
 // ---------------------------------------------------------------------------
 
+function requireField<T>(data: Record<string, unknown>, key: string, label: string): T {
+  const value = data[key];
+  if (value === undefined || value === null) {
+    throw new Error(`Missing required field '${key}' in ${label}`);
+  }
+  return value as T;
+}
+
 function deserializeCompetition(_pubkey: PublicKey, raw: unknown): Competition {
   const data = raw as Record<string, unknown>;
   return {
-    id: data['id'] as number,
-    name: data['name'] as string,
-    arena: data['arena'] as PublicKey,
-    format: data['format'] as Competition['format'],
-    status: data['status'] as Competition['status'],
-    entryFee: data['entryFee'] as number,
-    prizePool: data['prizePool'] as number,
-    maxAgents: data['maxAgents'] as number,
-    registeredCount: data['registeredCount'] as number,
-    startTime: data['startTime'] as number,
-    endTime: data['endTime'] as number,
-    prizeMint: data['prizeMint'] as PublicKey,
+    id: requireField<number>(data, 'id', 'Competition'),
+    name: requireField<string>(data, 'name', 'Competition'),
+    arena: requireField<PublicKey>(data, 'arena', 'Competition'),
+    format: requireField<Competition['format']>(data, 'format', 'Competition'),
+    status: requireField<Competition['status']>(data, 'status', 'Competition'),
+    entryFee: requireField<number>(data, 'entryFee', 'Competition'),
+    prizePool: requireField<number>(data, 'prizePool', 'Competition'),
+    maxAgents: requireField<number>(data, 'maxAgents', 'Competition'),
+    registeredCount: requireField<number>(data, 'registeredCount', 'Competition'),
+    startTime: requireField<number>(data, 'startTime', 'Competition'),
+    endTime: requireField<number>(data, 'endTime', 'Competition'),
+    prizeMint: requireField<PublicKey>(data, 'prizeMint', 'Competition'),
   };
 }
 
 function deserializeLeaderboardEntry(raw: unknown, rank: number): LeaderboardEntry {
   const data = raw as Record<string, unknown>;
   return {
-    agentMint: data['agentMint'] as PublicKey,
-    agentName: data['agentName'] as string ?? 'Unknown',
+    agentMint: requireField<PublicKey>(data, 'agentMint', 'LeaderboardEntry'),
+    agentName: (data['agentName'] as string | undefined) ?? 'Unknown',
     rank,
-    score: data['score'] as number ?? 0,
-    pnl: data['pnl'] as number ?? 0,
-    trades: data['trades'] as number ?? 0,
-    winRate: data['winRate'] as number ?? 0,
+    score: (data['score'] as number | undefined) ?? 0,
+    pnl: (data['pnl'] as number | undefined) ?? 0,
+    trades: (data['trades'] as number | undefined) ?? 0,
+    winRate: (data['winRate'] as number | undefined) ?? 0,
   };
 }
 
 function deserializeAgentProfile(raw: unknown): AgentProfile {
   const data = raw as Record<string, unknown>;
   return {
-    owner: data['owner'] as PublicKey,
-    mint: data['mint'] as PublicKey,
-    strategyHash: data['strategyHash'] as Uint8Array,
-    eloRating: data['eloRating'] as number,
-    wins: data['wins'] as number,
-    losses: data['losses'] as number,
-    totalPnl: data['totalPnl'] as number,
-    totalTrades: data['totalTrades'] as number,
-    competitionsEntered: data['competitionsEntered'] as number,
-    status: data['status'] as AgentProfile['status'],
-    createdAt: data['createdAt'] as number,
+    owner: requireField<PublicKey>(data, 'owner', 'AgentProfile'),
+    mint: requireField<PublicKey>(data, 'mint', 'AgentProfile'),
+    strategyHash: requireField<Uint8Array>(data, 'strategyHash', 'AgentProfile'),
+    eloRating: requireField<number>(data, 'eloRating', 'AgentProfile'),
+    wins: requireField<number>(data, 'wins', 'AgentProfile'),
+    losses: requireField<number>(data, 'losses', 'AgentProfile'),
+    totalPnl: requireField<number>(data, 'totalPnl', 'AgentProfile'),
+    totalTrades: requireField<number>(data, 'totalTrades', 'AgentProfile'),
+    competitionsEntered: requireField<number>(data, 'competitionsEntered', 'AgentProfile'),
+    status: requireField<AgentProfile['status']>(data, 'status', 'AgentProfile'),
+    createdAt: requireField<number>(data, 'createdAt', 'AgentProfile'),
   };
 }

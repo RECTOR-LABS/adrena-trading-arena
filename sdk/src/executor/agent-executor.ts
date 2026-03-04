@@ -19,6 +19,7 @@ export interface ExecutorStats {
   closes: number;
   holds: number;
   errors: number;
+  lastError: string | null;
   lastTickAt: number | null;
   startedAt: number | null;
 }
@@ -29,12 +30,15 @@ export interface AgentExecutorConfig {
   priceFeed: PriceFeed;
   capital: number;
   tickIntervalMs: number;
+  owner: PublicKey;
   mint: PublicKey;
   custody: PublicKey;
   /** Symbol for the price feed (e.g., 'SOL/USD'). */
   symbol?: string;
   /** Number of historical prices to fetch for strategy evaluation. */
   lookback?: number;
+  /** Optional error callback for tick failures. */
+  onError?: (error: unknown) => void;
 }
 
 export class AgentExecutor {
@@ -43,10 +47,12 @@ export class AgentExecutor {
   private priceFeed: PriceFeed;
   private positionManager: PositionManager;
   private tickIntervalMs: number;
+  private owner: PublicKey;
   private mint: PublicKey;
   private custody: PublicKey;
   private symbol: string;
   private lookback: number;
+  private onError?: (error: unknown) => void;
 
   private intervalId: ReturnType<typeof setInterval> | null = null;
   private stats: ExecutorStats = {
@@ -57,6 +63,7 @@ export class AgentExecutor {
     closes: 0,
     holds: 0,
     errors: 0,
+    lastError: null,
     lastTickAt: null,
     startedAt: null,
   };
@@ -66,10 +73,12 @@ export class AgentExecutor {
     this.trader = config.trader;
     this.priceFeed = config.priceFeed;
     this.tickIntervalMs = config.tickIntervalMs;
+    this.owner = config.owner;
     this.mint = config.mint;
     this.custody = config.custody;
     this.symbol = config.symbol ?? 'SOL/USD';
     this.lookback = config.lookback ?? 50;
+    this.onError = config.onError;
 
     this.positionManager = new PositionManager(
       config.trader,
@@ -85,15 +94,13 @@ export class AgentExecutor {
     const market = await this.priceFeed.getMarketState(this.symbol, this.lookback);
     const signal = this.strategy.evaluate(market);
 
-    // Fetch current position
-    const owner = this.mint; // In a real scenario, this comes from the agent's owner
-    const currentPosition = await this.trader.getPosition(owner, this.custody);
+    const currentPosition = await this.trader.getPosition(this.owner, this.custody);
 
     const trade = await this.positionManager.executeSignal(
       signal,
       market,
       currentPosition,
-      owner,
+      this.owner,
       this.custody,
     );
 
@@ -121,8 +128,10 @@ export class AgentExecutor {
 
     this.stats.startedAt = Date.now();
     this.intervalId = setInterval(() => {
-      this.tick().catch(() => {
+      this.tick().catch((err: unknown) => {
         this.stats.errors++;
+        this.stats.lastError = err instanceof Error ? err.message : String(err);
+        this.onError?.(err);
       });
     }, this.tickIntervalMs);
   }
