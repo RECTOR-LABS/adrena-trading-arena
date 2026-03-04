@@ -1,0 +1,11 @@
+pub const ARENA_SEED: &[u8] = b"arena";
+pub const AGENT_SEED: &[u8] = b"agent";
+pub const COMPETITION_SEED: &[u8] = b"competition";
+pub const ENROLLMENT_SEED: &[u8] = b"enrollment";
+pub const PRIZE_VAULT_SEED: &[u8] = b"prize_vault";
+pub const MAX_NAME_LEN: usize = 32;
+pub const MAX_URI_LEN: usize = 200;
+pub const MAX_AGENTS_PER_COMPETITION: u32 = 256;
+pub const DEFAULT_ELO: u32 = 1000;
+pub const STRATEGY_HASH_LEN: usize = 32;
+pub const MAX_SCORE_BATCH: usize = 32;
