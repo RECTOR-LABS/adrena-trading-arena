@@ -9,13 +9,8 @@ const WalletMultiButton = dynamic(
 
 export function WalletButton() {
   return (
-    <WalletMultiButton
-      style={{
-        backgroundColor: '#e94560',
-        borderRadius: '8px',
-        fontSize: '14px',
-        height: '40px',
-      }}
-    />
+    <div className="[&_.wallet-adapter-button]:!bg-arena-accent [&_.wallet-adapter-button]:!rounded-lg [&_.wallet-adapter-button]:!text-sm [&_.wallet-adapter-button]:!h-10">
+      <WalletMultiButton />
+    </div>
   );
 }

@@ -10,19 +10,12 @@ import { LeaderboardTable } from '@/components/rankings/LeaderboardTable';
 import { TradesFeed } from '@/components/battle/TradesFeed';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { formatUsd, cn } from '@/lib/utils';
+import { competitionStatusColors } from '@/lib/status-colors';
 
 const LivePnLChart = dynamic(
   () => import('@/components/battle/LivePnLChart').then(m => ({ default: m.LivePnLChart })),
   { ssr: false, loading: () => <div className="h-[300px] bg-arena-deep rounded-lg animate-pulse" /> }
 );
-
-const statusColors: Record<string, string> = {
-  Pending: 'bg-arena-muted/20 text-arena-muted',
-  Registration: 'bg-arena-blue/20 text-blue-400',
-  Active: 'bg-arena-success/20 text-arena-success',
-  Scoring: 'bg-arena-warning/20 text-arena-warning',
-  Settled: 'bg-arena-muted/20 text-arena-muted',
-};
 
 export default function CompetitionBattlePage() {
   const params = useParams<{ id: string }>();
@@ -69,7 +62,7 @@ export default function CompetitionBattlePage() {
             <span
               className={cn(
                 'px-2 py-1 rounded text-xs font-medium',
-                statusColors[competition.status] ?? statusColors.Pending
+                competitionStatusColors[competition.status] ?? competitionStatusColors.Pending
               )}
             >
               {competition.status}

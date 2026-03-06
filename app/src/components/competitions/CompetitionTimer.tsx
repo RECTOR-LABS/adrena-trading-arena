@@ -41,12 +41,14 @@ export function CompetitionTimer({ startTime, endTime, status }: CompetitionTime
   const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(() => computeTimeLeft(targetMs));
 
   useEffect(() => {
+    if (status === 'Settled' || status === 'Scoring') return;
+
     const interval = setInterval(() => {
       setTimeLeft(computeTimeLeft(targetMs));
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [targetMs]);
+  }, [targetMs, status]);
 
   if (status === 'Settled' || status === 'Scoring') {
     return (

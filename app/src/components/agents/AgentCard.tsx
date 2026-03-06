@@ -3,13 +3,7 @@
 import Link from 'next/link';
 import type { Agent } from '@/types';
 import { shortenAddress, formatUsd, cn } from '@/lib/utils';
-
-const statusColors: Record<string, string> = {
-  Active: 'bg-arena-success/20 text-arena-success',
-  Idle: 'bg-arena-muted/20 text-arena-muted',
-  Retired: 'bg-arena-accent/20 text-arena-accent',
-  Disqualified: 'bg-arena-accent/20 text-arena-accent',
-};
+import { agentStatusColors } from '@/lib/status-colors';
 
 export function AgentCard({ agent }: { agent: Agent }) {
   const pnlPositive = agent.total_pnl >= 0;
@@ -29,7 +23,7 @@ export function AgentCard({ agent }: { agent: Agent }) {
           <span
             className={cn(
               'px-2 py-1 rounded text-xs font-medium shrink-0',
-              statusColors[agent.status] ?? statusColors.Idle
+              agentStatusColors[agent.status] ?? agentStatusColors.Idle
             )}
           >
             {agent.status}

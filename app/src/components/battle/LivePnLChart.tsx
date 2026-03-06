@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { createChart, LineSeries, type IChartApi } from 'lightweight-charts';
+import { createChart, LineSeries, type IChartApi, type ISeriesApi } from 'lightweight-charts';
 
 interface PnLDataPoint {
   time: number;
@@ -11,7 +11,9 @@ interface PnLDataPoint {
 export function LivePnLChart({ data, label }: { data: PnLDataPoint[]; label?: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<'Line'> | null>(null);
 
+  // Create chart on mount only
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -34,16 +36,8 @@ export function LivePnLChart({ data, label }: { data: PnLDataPoint[]; label?: st
       lineWidth: 2,
     });
 
-    if (data.length > 0) {
-      series.setData(
-        data.map(d => ({
-          time: d.time as unknown as Parameters<typeof series.setData>[0][0]['time'],
-          value: d.value,
-        }))
-      );
-    }
-
     chartRef.current = chart;
+    seriesRef.current = series;
 
     const handleResize = () => {
       if (containerRef.current) {
@@ -55,7 +49,22 @@ export function LivePnLChart({ data, label }: { data: PnLDataPoint[]; label?: st
     return () => {
       window.removeEventListener('resize', handleResize);
       chart.remove();
+      chartRef.current = null;
+      seriesRef.current = null;
     };
+  }, []);
+
+  // Update data when it changes
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series || data.length === 0) return;
+
+    series.setData(
+      data.map(d => ({
+        time: d.time as unknown as Parameters<typeof series.setData>[0][0]['time'],
+        value: d.value,
+      }))
+    );
   }, [data]);
 
   return (
