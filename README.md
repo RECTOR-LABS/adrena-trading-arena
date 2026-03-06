@@ -1,118 +1,287 @@
+<div align="center">
+
+<pre>
+ █████╗ ██████╗ ███████╗███╗   ██╗ █████╗
+██╔══██╗██╔══██╗██╔════╝████╗  ██║██╔══██╗
+███████║██████╔╝█████╗  ██╔██╗ ██║███████║
+██╔══██║██╔══██╗██╔══╝  ██║╚██╗██║██╔══██║
+██║  ██║██║  ██║███████╗██║ ╚████║██║  ██║
+╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═══╝╚═╝  ╚═╝
+
+████████╗██████╗  █████╗ ██████╗ ██╗███╗   ██╗ ██████╗
+╚══██╔══╝██╔══██╗██╔══██╗██╔══██╗██║████╗  ██║██╔════╝
+   ██║   ██████╔╝███████║██║  ██║██║██╔██╗ ██║██║  ███╗
+   ██║   ██╔══██╗██╔══██║██║  ██║██║██║╚██╗██║██║   ██║
+   ██║   ██║  ██║██║  ██║██████╔╝██║██║ ╚████║╚██████╔╝
+   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚═╝╚═╝  ╚═══╝ ╚═════╝
+
+ █████╗ ██████╗ ███████╗███╗   ██╗ █████╗
+██╔══██╗██╔══██╗██╔════╝████╗  ██║██╔══██╗
+███████║██████╔╝█████╗  ██╔██╗ ██║███████║
+██╔══██║██╔══██╗██╔══╝  ██║╚██╗██║██╔══██║
+██║  ██║██║  ██║███████╗██║ ╚████║██║  ██║
+╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═══╝╚═╝  ╚═╝
+</pre>
+
 # AI Trading Arena
 
-Autonomous agent competition platform for [Adrena Protocol](https://adrena.xyz) on Solana. AI trading agents battle each other on Adrena's perpetual exchange, competing for prizes based on risk-adjusted performance.
+**Autonomous agents battle on Adrena's perpetual exchange. Mint your agent as an NFT. Deploy your strategy. Compete for prizes.**
 
-**Arena Program**: `PBPaxmk2fFuvXFqiTM4c6FmuEP4tr8eK8wpa4HroVq6`
-**Adrena Program**: `13gDzEXCdocbj8iAiqrScGo47NiSuYENGsRqi3SEAwet`
+*Real trades on real markets. Risk-adjusted scoring. Trustless prize vaults. 24/7 volume generation.*
 
-## What Is This?
+[![Solana](https://img.shields.io/badge/Solana-Devnet-9945FF.svg)](https://explorer.solana.com/address/PBPaxmk2fFuvXFqiTM4c6FmuEP4tr8eK8wpa4HroVq6?cluster=devnet)
+[![Tests](https://img.shields.io/badge/Tests-234%20passing-brightgreen.svg)](#-test-results)
+[![Anchor](https://img.shields.io/badge/Anchor-0.32.1-blue.svg)](https://www.anchor-lang.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-The Arena is a competitive platform where users deploy autonomous trading strategies that trade real perpetual positions on Adrena. Agents are minted as Metaplex Core NFTs -- giving them a transferable on-chain identity with persistent stats and ELO ratings. Competitions range from multi-week seasons to 1-hour flash duels, with entry fees pooled into trustless PDA-owned prize vaults.
+</div>
 
-**Why it matters for Adrena:**
-- Competitions drove 50% of 2025 trading volume. AI agents trade 24/7 = perpetual volume generation.
-- First AI agent competition platform on any Solana perp DEX.
-- New user segment: algo builders, quant developers, AI researchers.
-- Agent NFTs create a secondary market that drives engagement.
+---
 
-## Architecture
+## The Idea
+
+Adrena's competitions drove **50% of all 2025 trading volume**. What if those competitions ran 24/7, autonomously, with AI agents trading real perpetual positions?
+
+The Arena makes this real. Users mint agent NFTs, configure trading strategies, and enter competitions. Agents trade on Adrena's actual perpetual exchange — every position, every P&L, every liquidation is real. Winners claim prizes from trustless on-chain vaults.
 
 ```
-Frontend (Next.js 14)  <-->  Orchestrator (Rust/Axum)  <-->  Arena Program (Solana)
-                                                       <-->  Adrena Program (existing)
+  You                     Arena                        Adrena
+  ───                     ─────                        ──────
+   │                        │                            │
+   │── Mint Agent NFT ─────>│                            │
+   │── Pick Strategy ──────>│                            │
+   │── Enter Competition ──>│                            │
+   │                        │── openPositionLong ───────>│
+   │                        │<─ Position Opened ─────────│
+   │                        │── closePositionShort ─────>│
+   │                        │<─ P&L Realized ────────────│
+   │                        │                            │
+   │                        │── Score + Rank ───────────>│ (Mutagen, Leaderboard)
+   │<─ Claim Prize ─────────│                            │
 ```
 
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| **Arena Program** | Anchor (Rust), Solana | Agent NFTs, competition state, prize escrow, score attestation |
-| **Orchestrator** | Rust, Axum, Yellowstone gRPC, PostgreSQL | Position monitoring, scoring engine, lifecycle management, REST API + SSE |
-| **Agent SDK** | TypeScript, Vitest | Strategy interface, 4 preset strategies, technical indicators, autonomous execution |
-| **Frontend** | Next.js 14, Tailwind CSS, TradingView Charts | Live battle views, strategy builder, rankings, wallet integration |
+## How It Works
 
-## Competition Formats
+### 1. Mint Your Agent
+Each agent is a **Metaplex Core NFT** with on-chain identity — ELO rating, win/loss record, total P&L, competition history. The NFT is transferable, so successful agents have real value.
 
-| Format | Duration | Best For |
-|--------|----------|----------|
-| **Season Arena** | 1-4 weeks | Sustained strategy evaluation |
-| **Flash Duels** | 1-24 hours | Quick engagements, 1v1 battles |
-| **Bracket Tournament** | Multi-day | Elimination championships |
-| **Sandbox** | Unlimited | Strategy testing, no stakes |
+### 2. Choose Your Strategy
+Pick from 4 preset strategies or build your own:
 
-## Scoring
+| Strategy | Signal Logic | Best For |
+|----------|-------------|----------|
+| **Momentum** | EMA crossover (fast/slow) | Trending markets |
+| **Mean Reversion** | Bollinger Band bounce | Range-bound markets |
+| **Breakout** | N-period high/low break | Volatility expansion |
+| **Scalper** | RSI overbought/oversold | High-frequency entries |
+
+### 3. Enter a Competition
+
+| Format | Duration | Entry |
+|--------|----------|-------|
+| **Season Arena** | 1-4 weeks | Sustained evaluation |
+| **Flash Duels** | 1-24 hours | Quick battles |
+| **Bracket Tournament** | Multi-day | Elimination rounds |
+| **Sandbox** | Unlimited | Free practice |
+
+### 4. Agents Battle Autonomously
+The execution loop runs tick-by-tick:
+```
+fetch price → evaluate strategy → enforce risk limits → execute trade on Adrena → repeat
+```
+
+Stop-loss and take-profit fire automatically. Position sizing respects max leverage and capital allocation. No manual intervention.
+
+### 5. Score and Claim
 
 ```
 Arena Score = (Net P&L / Max Drawdown) x Activity Multiplier x Duration Bonus
 ```
 
-- **Risk-adjusted return**: Rewards profit with controlled drawdowns
-- **Activity Multiplier**: `min(trades/10, 2.0)` -- active traders score higher, caps at 2x
-- **Duration Bonus**: `1.0 + min(hours/168, 0.5)` -- rewards full participation, caps at 1.5x
+Prizes sit in **PDA-signed vaults** — no admin can touch them. Winners claim directly on-chain.
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Frontend (Next.js 14)                     │
+│   Live P&L Charts • Battle View • Rankings • Strategy Builder    │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │ REST + SSE
+┌──────────────────────────────┴──────────────────────────────────┐
+│                    Orchestrator (Rust / Axum)                     │
+│   Scoring Engine • Position Monitor • Lifecycle FSM • REST API   │
+└───────────┬──────────────────────────────────┬──────────────────┘
+            │ WebSocket                         │ RPC
+┌───────────┴───────────┐         ┌────────────┴─────────────────┐
+│   Arena Program        │         │   Adrena Program (existing)   │
+│   (Anchor / Solana)    │         │   Perpetual Exchange           │
+│                        │         │                                │
+│   • Agent NFTs         │         │   • openPositionLong/Short     │
+│   • Competition State  │         │   • closePositionLong/Short    │
+│   • Prize Vaults       │         │   • Position Accounts          │
+│   • Score Attestation  │         │   • Mutagen • Leaderboard      │
+└────────────────────────┘         └────────────────────────────────┘
+```
+
+| Layer | Stack | What It Does |
+|-------|-------|-------------|
+| **Arena Program** | Anchor 0.32.1, Metaplex Core | 11 instructions. Agent NFTs, competition lifecycle, PDA prize vaults, batched score submission |
+| **Orchestrator** | Rust, Axum, PostgreSQL | WebSocket position monitoring, Arena Score computation (Sharpe, drawdown, win rate), competition state machine, REST API + SSE streaming |
+| **Agent SDK** | TypeScript, Vitest | `LiveAdrenaTrader` calling real Adrena instructions. 4 strategies, 4 indicators (EMA, SMA, RSI, Bollinger), tick-based executor with risk enforcement |
+| **Frontend** | Next.js 14, Tailwind, TradingView | 6 pages — home, competitions, live battle view, agent creation, agent profile, global rankings. Wallet adapter (Phantom/Backpack/Solflare) |
+
+---
+
+## Adrena Integration
+
+This is not a paper trading simulator. Agents trade on Adrena's actual perpetual exchange.
+
+| Integration Point | How |
+|-------------------|-----|
+| **Trading** | `LiveAdrenaTrader` constructs real `openOrIncreasePositionWithSwapLong/Short` and `closePositionLong/Short` transactions against `13gDzEXCdocbj8iAiqrScGo47NiSuYENGsRqi3SEAwet` |
+| **Position Monitoring** | WebSocket `programSubscribe` filters Adrena position accounts by Anchor discriminator, decodes 248-byte Borsh struct in real-time |
+| **Mutagen** | Arena trades are real Adrena trades — the Mutagen indexer picks them up automatically |
+| **P&L Leaderboard** | Agent positions appear on Adrena's leaderboard like any other trader |
+| **Quests & Streaks** | Real on-chain activity triggers quest progress and streak increments |
+
+See the full integration matrix in [docs/competition-design.md](docs/competition-design.md#6-integration-with-adrena-protocol).
+
+---
+
+## On-Chain Program
+
+**Arena Program**: [`PBPaxmk2fFuvXFqiTM4c6FmuEP4tr8eK8wpa4HroVq6`](https://explorer.solana.com/address/PBPaxmk2fFuvXFqiTM4c6FmuEP4tr8eK8wpa4HroVq6?cluster=devnet) (deployed on devnet)
+
+| Instruction | What It Does |
+|------------|-------------|
+| `initialize_arena` | Create protocol singleton with fee config |
+| `create_agent` | Mint Metaplex Core NFT + init agent account (ELO 1000) |
+| `update_agent_strategy` | Commit new strategy hash |
+| `retire_agent` | Deactivate agent |
+| `create_competition` | Init competition + PDA prize vault |
+| `enroll_agent` | Entry fee transfer to vault, create enrollment |
+| `start_competition` | Transition Registration → Active (min 2 agents) |
+| `submit_scores` | Batch score submission via remaining_accounts (up to 32/tx) |
+| `settle_competition` | Transition Scoring → Settled |
+| `claim_prize` | PDA-signed token transfer from vault to winner |
+| `disqualify_agent` | Remove agent from competition |
+
+**Security**: Checked arithmetic on all counters, remaining_accounts dedup via BTreeSet, prize vault balance pre-checks, Token Interface (SPL + Token-2022) support.
+
+---
 
 ## Project Structure
 
 ```
-programs/arena/           # Anchor program (11 instructions, 4 account types)
-orchestrator/             # Rust orchestrator (gRPC, scoring, REST API, PostgreSQL)
-sdk/                      # Agent SDK (strategies, indicators, execution engine)
-app/                      # Next.js 14 frontend (6 pages, wallet adapter, live charts)
-tests/                    # On-chain integration tests (27 tests)
-docs/                     # Documentation
-  competition-design.md   # Competition design document (formal deliverable)
-  deployment-guide.md     # Step-by-step deployment instructions
-  testing-results.md      # Test results and recommendations
+adrena-trading-arena/
+├── programs/arena/              # Anchor program
+│   └── src/
+│       ├── instructions/        # 11 instruction handlers
+│       ├── state/               # Arena, Agent, Competition, Enrollment
+│       ├── events.rs            # 8 event types
+│       ├── error.rs             # 19 error variants
+│       └── constants.rs         # Seeds, limits, defaults
+├── orchestrator/                # Rust orchestrator
+│   └── src/
+│       ├── api/                 # Axum REST handlers + SSE
+│       ├── db/                  # PostgreSQL queries (6 tables)
+│       ├── grpc/                # WebSocket subscriber + position decoder
+│       ├── scoring/             # Arena Score engine + metrics
+│       └── lifecycle/           # Competition state machine
+├── sdk/                         # TypeScript Agent SDK
+│   └── src/
+│       ├── client/              # ArenaClient + LiveAdrenaTrader
+│       ├── strategies/          # Momentum, Mean Reversion, Breakout, Scalper
+│       ├── indicators/          # EMA, SMA, RSI, Bollinger Bands
+│       ├── executor/            # AgentExecutor + PositionManager
+│       └── market/              # PriceFeed (Hermes API)
+├── app/                         # Next.js 14 frontend
+│   └── src/
+│       ├── app/                 # 6 pages + error boundary + 404
+│       ├── components/          # Battle, competitions, agents, rankings
+│       ├── hooks/               # useCompetitions, useLiveUpdates, etc.
+│       └── providers/           # Wallet adapter + React Query
+├── tests/                       # On-chain integration tests
+├── scripts/                     # Devnet E2E lifecycle test
+└── docs/                        # Design doc, deployment guide, test results
 ```
+
+---
 
 ## Quick Start
 
-**Prerequisites**: Rust 1.75+, Solana CLI 2.1+, Anchor 0.32.1, Node.js 20+, pnpm 10+, PostgreSQL 14+
-
 ```bash
-# Build and test the on-chain program
-anchor build
-anchor test
+# Prerequisites: Rust 1.75+, Solana CLI 2.1+, Anchor 0.32.1, Node.js 20+, pnpm 10+
 
-# Build and test the SDK
+# On-chain program
+anchor build && anchor test
+
+# Agent SDK (133 tests)
 cd sdk && pnpm install && pnpm test
 
-# Build and test the orchestrator
+# Orchestrator (74 tests)
 cd orchestrator && cargo test
 
-# Run the orchestrator
-cd orchestrator && cargo run
-
-# Start the frontend
-cd app && pnpm install && pnpm dev
+# Frontend
+cd app && pnpm install && pnpm dev    # localhost:3000
 ```
 
-See [docs/deployment-guide.md](docs/deployment-guide.md) for detailed deployment instructions.
+Full deployment instructions in [docs/deployment-guide.md](docs/deployment-guide.md).
+
+---
 
 ## Test Results
 
-**234 tests total -- all passing, zero warnings.**
+**234 tests. All passing. Zero warnings.**
 
-| Layer | Tests | Coverage |
-|-------|-------|----------|
-| On-chain program | 27 | All 11 instructions, lifecycle flow, edge cases |
-| Agent SDK | 133 | 4 strategies, 4 indicators, client, Adrena trader, executor, position manager, price feed |
-| Orchestrator | 74 | Scoring metrics, engine, lifecycle FSM, gRPC subscriber, WebSocket subscriber, position decoder |
+| Layer | Tests | Covers |
+|-------|-------|--------|
+| On-chain | 27 | All 11 instructions, full lifecycle, edge cases |
+| SDK | 133 | 4 strategies, 4 indicators, ArenaClient, LiveAdrenaTrader, executor, position manager, price feed |
+| Orchestrator | 74 | Scoring metrics, Arena Score engine, lifecycle FSM, WebSocket subscriber, position decoder |
+| Frontend | Build + TypeScript | 8 pages generated, zero TS errors, zero lint warnings |
 
-See [docs/testing-results.md](docs/testing-results.md) for detailed results and known limitations.
+```bash
+# Verify yourself
+cd sdk && pnpm test              # 133 passed
+cd orchestrator && cargo test    # 74 passed, 0 warnings
+cd app && pnpm build             # Compiled successfully
+anchor build                     # Built successfully
+```
+
+---
 
 ## Documentation
 
-- [Competition Design Document](docs/competition-design.md) -- Comprehensive system design, scoring mechanics, integration approach
-- [Deployment Guide](docs/deployment-guide.md) -- Step-by-step build, test, and deploy instructions
-- [Testing Results](docs/testing-results.md) -- Test coverage, methodology, known limitations, recommendations
+| Document | What's Inside |
+|----------|--------------|
+| [**Competition Design**](docs/competition-design.md) | 880 lines. 4 competition formats, Arena Score formula, ELO system, Adrena integration matrix, competitive analysis vs 7 protocols, abuse prevention for 8 threat vectors |
+| [**Deployment Guide**](docs/deployment-guide.md) | Step-by-step for all 4 layers. Docker Compose for orchestrator, Vercel for frontend, devnet program deployment |
+| [**Testing Results**](docs/testing-results.md) | Real test output, devnet verification, 5-day user testing plan with 14 feedback questions, iteration recommendations |
 
-## Bounty Context
+---
 
-Built for the [Adrena x Autonom Trading Competition](https://superteam.fun/earn/listing/adrena-x-autonom-trading-competition-design-and-development-1) bounty on Superteam Earn.
+## Bounty Submission
 
-**Deliverables:**
-1. Competition Design Document -- [docs/competition-design.md](docs/competition-design.md)
-2. Working Prototype -- This repository (on-chain program + orchestrator + SDK + frontend)
-3. Testing & Feedback -- [docs/testing-results.md](docs/testing-results.md)
+Built for [Adrena x Autonom: Trading Competition Design & Development](https://superteam.fun/earn/listing/adrena-x-autonom-trading-competition-design-and-development-1) on Superteam Earn.
 
-## License
+| Deliverable | Location |
+|------------|----------|
+| Competition Design Document | [docs/competition-design.md](docs/competition-design.md) |
+| Working Prototype | This repository — program + orchestrator + SDK + frontend |
+| Testing & Feedback | [docs/testing-results.md](docs/testing-results.md) |
 
-MIT
+---
+
+<div align="center">
+
+**Arena Program** · [`PBPaxmk2fFuvXFqiTM4c6FmuEP4tr8eK8wpa4HroVq6`](https://explorer.solana.com/address/PBPaxmk2fFuvXFqiTM4c6FmuEP4tr8eK8wpa4HroVq6?cluster=devnet)
+
+**Adrena Program** · [`13gDzEXCdocbj8iAiqrScGo47NiSuYENGsRqi3SEAwet`](https://explorer.solana.com/address/13gDzEXCdocbj8iAiqrScGo47NiSuYENGsRqi3SEAwet?cluster=devnet)
+
+MIT License
+
+</div>
