@@ -5,6 +5,10 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 
+const AGENT_COLUMNS: &str = "id, mint, owner, name, strategy_hash, elo_rating, wins, losses, total_pnl, total_trades, status, created_at, updated_at";
+
+const MAX_LIMIT: i64 = 1000;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentRow {
   pub id: Uuid,
@@ -23,22 +27,22 @@ pub struct AgentRow {
 }
 
 impl AgentRow {
-  fn from_row(row: &tokio_postgres::Row) -> Self {
-    Self {
-      id: row.get("id"),
-      mint: row.get("mint"),
-      owner: row.get("owner"),
-      name: row.get("name"),
-      strategy_hash: row.get("strategy_hash"),
-      elo_rating: row.get("elo_rating"),
-      wins: row.get("wins"),
-      losses: row.get("losses"),
-      total_pnl: row.get("total_pnl"),
-      total_trades: row.get("total_trades"),
-      status: row.get("status"),
-      created_at: row.get("created_at"),
-      updated_at: row.get("updated_at"),
-    }
+  fn from_row(row: &tokio_postgres::Row) -> Result<Self, AppError> {
+    Ok(Self {
+      id: row.try_get("id").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+      mint: row.try_get("mint").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+      owner: row.try_get("owner").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+      name: row.try_get("name").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+      strategy_hash: row.try_get("strategy_hash").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+      elo_rating: row.try_get("elo_rating").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+      wins: row.try_get("wins").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+      losses: row.try_get("losses").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+      total_pnl: row.try_get("total_pnl").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+      total_trades: row.try_get("total_trades").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+      status: row.try_get("status").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+      created_at: row.try_get("created_at").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+      updated_at: row.try_get("updated_at").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+    })
   }
 }
 
@@ -47,9 +51,11 @@ pub async fn insert_agent(pool: &Pool, agent: &AgentRow) -> Result<AgentRow, App
   let client = pool.get().await?;
   let row = client
     .query_one(
-      "INSERT INTO agents (mint, owner, name, strategy_hash, elo_rating, status)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING *",
+      &format!(
+        "INSERT INTO agents (mint, owner, name, strategy_hash, elo_rating, status)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING {AGENT_COLUMNS}"
+      ),
       &[
         &agent.mint,
         &agent.owner,
@@ -61,7 +67,7 @@ pub async fn insert_agent(pool: &Pool, agent: &AgentRow) -> Result<AgentRow, App
     )
     .await?;
 
-  Ok(AgentRow::from_row(&row))
+  AgentRow::from_row(&row)
 }
 
 /// Look up an agent by its on-chain mint address.
@@ -71,10 +77,13 @@ pub async fn get_agent_by_mint(
 ) -> Result<Option<AgentRow>, AppError> {
   let client = pool.get().await?;
   let row = client
-    .query_opt("SELECT * FROM agents WHERE mint = $1", &[&mint])
+    .query_opt(
+      &format!("SELECT {AGENT_COLUMNS} FROM agents WHERE mint = $1"),
+      &[&mint],
+    )
     .await?;
 
-  Ok(row.as_ref().map(AgentRow::from_row))
+  row.as_ref().map(AgentRow::from_row).transpose()
 }
 
 /// Update an agent's ELO rating.
@@ -97,24 +106,33 @@ pub async fn update_agent_elo(
   Ok(())
 }
 
-/// List agents, optionally filtering by status.
+/// List agents with pagination, optionally filtering by status.
 pub async fn list_agents(
   pool: &Pool,
   status: Option<&str>,
+  limit: i64,
+  offset: i64,
 ) -> Result<Vec<AgentRow>, AppError> {
+  let limit = limit.min(MAX_LIMIT);
   let client = pool.get().await?;
   let rows = match status {
     Some(s) => {
       client
-        .query("SELECT * FROM agents WHERE status = $1 ORDER BY elo_rating DESC", &[&s])
+        .query(
+          &format!("SELECT {AGENT_COLUMNS} FROM agents WHERE status = $1 ORDER BY elo_rating DESC LIMIT $2 OFFSET $3"),
+          &[&s, &limit, &offset],
+        )
         .await?
     }
     None => {
       client
-        .query("SELECT * FROM agents ORDER BY elo_rating DESC", &[])
+        .query(
+          &format!("SELECT {AGENT_COLUMNS} FROM agents ORDER BY elo_rating DESC LIMIT $1 OFFSET $2"),
+          &[&limit, &offset],
+        )
         .await?
     }
   };
 
-  Ok(rows.iter().map(AgentRow::from_row).collect())
+  rows.iter().map(AgentRow::from_row).collect()
 }

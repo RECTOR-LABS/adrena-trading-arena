@@ -1,10 +1,12 @@
+use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 
 use axum::routing::get;
 use axum::Router;
 use clap::Parser;
+use http::{HeaderName, Method};
 use tokio::sync::broadcast;
-use tower_http::cors::CorsLayer;
+use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 
 mod api;
@@ -31,26 +33,58 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
   tracing::info!("Arena Orchestrator starting...");
   tracing::info!(port = config.api_port, "API port");
-  tracing::info!(grpc = %config.grpc_endpoint, "gRPC endpoint");
+  if let Some(ref grpc) = config.grpc_endpoint {
+    tracing::info!(grpc = %grpc, "gRPC endpoint");
+  } else {
+    tracing::info!("gRPC endpoint not configured");
+  }
   tracing::info!(arena = %config.arena_program_id, "Arena program");
   tracing::info!(adrena = %config.adrena_program_id, "Adrena program");
 
-  // Attempt DB connection if DATABASE_URL is set to a reachable host.
-  // Falls back to skeleton mode (pool = None) if connection fails.
-  let pool = match db::pool::create_pool(&config.database_url) {
-    Ok(p) => {
-      tracing::info!("Database pool created");
-      Some(p)
-    }
-    Err(e) => {
-      tracing::warn!(error = %e, "Database pool creation failed — running in skeleton mode");
+  // Create DB pool only if DATABASE_URL is provided
+  let pool = match config.database_url {
+    Some(ref url) => match db::pool::create_pool(url) {
+      Ok(p) => {
+        tracing::info!("Database pool created");
+        Some(p)
+      }
+      Err(e) => {
+        tracing::error!(error = %e, "Database pool creation failed");
+        return Err(format!("Database pool creation failed: {e}").into());
+      }
+    },
+    None => {
+      tracing::warn!("DATABASE_URL not set — running without database");
       None
     }
   };
 
+  // Run migrations if DB is available
+  if let Some(ref pool) = pool {
+    db::migrations::run_migrations(pool)
+      .await
+      .expect("Failed to run database migrations");
+  }
+
   let (live_tx, _) = broadcast::channel::<String>(256);
 
-  let state = Arc::new(AppState { pool, live_tx });
+  let state = Arc::new(AppState {
+    pool,
+    live_tx,
+    sse_connections: Arc::new(AtomicUsize::new(0)),
+  });
+
+  // CORS: configurable origin whitelist, read-only methods
+  let cors_origin = std::env::var("CORS_ORIGIN")
+    .unwrap_or_else(|_| "http://localhost:3000".to_string());
+  let cors = CorsLayer::new()
+    .allow_origin(AllowOrigin::exact(
+      cors_origin
+        .parse::<http::HeaderValue>()
+        .expect("Invalid CORS_ORIGIN value"),
+    ))
+    .allow_methods([Method::GET, Method::OPTIONS])
+    .allow_headers([HeaderName::from_static("content-type")]);
 
   let app = Router::new()
     .route("/health", get(handlers::health::health))
@@ -65,11 +99,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
       "/api/competitions/{id}/live",
       get(handlers::live::live_updates),
     )
-    .layer(CorsLayer::permissive())
+    .layer(cors)
     .layer(TraceLayer::new_for_http())
     .with_state(state);
 
-  let addr = format!("0.0.0.0:{}", config.api_port);
+  let addr = format!("{}:{}", config.api_bind, config.api_port);
   tracing::info!(addr = %addr, "Listening");
 
   let listener = tokio::net::TcpListener::bind(&addr).await?;

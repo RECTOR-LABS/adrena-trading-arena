@@ -1,59 +1,56 @@
 use std::sync::Arc;
 
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::Json;
-use chrono::Utc;
+use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::api::models::{CompetitionResponse, LeaderboardEntry};
 use crate::api::state::AppState;
 use crate::error::AppError;
 
-/// GET /api/competitions — list all competitions.
-/// Returns mock data when no DB is connected.
+#[derive(Debug, Deserialize)]
+pub struct PaginationParams {
+  pub limit: Option<i64>,
+  pub offset: Option<i64>,
+}
+
+const DEFAULT_LIMIT: i64 = 100;
+
+/// GET /api/competitions — list all competitions with pagination.
 pub async fn list_competitions(
   State(state): State<Arc<AppState>>,
+  Query(params): Query<PaginationParams>,
 ) -> Result<Json<Vec<CompetitionResponse>>, AppError> {
-  if let Some(pool) = &state.pool {
-    let rows = crate::db::competitions::list_competitions(pool, None).await?;
-    let competitions: Vec<CompetitionResponse> = rows
-      .into_iter()
-      .map(|r| CompetitionResponse {
-        id: r.id,
-        on_chain_id: r.on_chain_id,
-        name: r.name,
-        format: r.format,
-        status: r.status,
-        entry_fee: r.entry_fee,
-        prize_pool: r.prize_pool,
-        max_agents: r.max_agents,
-        registered_count: r.registered_count,
-        start_time: r.start_time,
-        end_time: r.end_time,
-      })
-      .collect();
-    return Ok(Json(competitions));
-  }
+  let pool = state.pool.as_ref().ok_or_else(|| {
+    AppError::ServiceUnavailable("Database not available".to_string())
+  })?;
 
-  // Mock data for skeleton mode
-  let now = Utc::now();
-  Ok(Json(vec![CompetitionResponse {
-    id: Uuid::nil(),
-    on_chain_id: 1,
-    name: "Arena Alpha #1".to_string(),
-    format: "free_for_all".to_string(),
-    status: "active".to_string(),
-    entry_fee: 1_000_000,
-    prize_pool: 10_000_000,
-    max_agents: 16,
-    registered_count: 8,
-    start_time: now,
-    end_time: now + chrono::Duration::hours(168),
-  }]))
+  let limit = params.limit.unwrap_or(DEFAULT_LIMIT);
+  let offset = params.offset.unwrap_or(0);
+
+  let rows = crate::db::competitions::list_competitions(pool, None, limit, offset).await?;
+  let competitions: Vec<CompetitionResponse> = rows
+    .into_iter()
+    .map(|r| CompetitionResponse {
+      id: r.id,
+      on_chain_id: r.on_chain_id,
+      name: r.name,
+      format: r.format,
+      status: r.status,
+      entry_fee: r.entry_fee,
+      prize_pool: r.prize_pool,
+      max_agents: r.max_agents,
+      registered_count: r.registered_count,
+      start_time: r.start_time,
+      end_time: r.end_time,
+    })
+    .collect();
+
+  Ok(Json(competitions))
 }
 
 /// GET /api/competitions/:id — get a single competition by UUID.
-/// Returns mock data when no DB is connected.
 pub async fn get_competition(
   State(state): State<Arc<AppState>>,
   Path(id): Path<String>,
@@ -61,84 +58,61 @@ pub async fn get_competition(
   let uuid = Uuid::parse_str(&id)
     .map_err(|_| AppError::NotFound(format!("Invalid competition ID: {id}")))?;
 
-  if let Some(pool) = &state.pool {
-    let row = crate::db::competitions::get_competition(pool, &uuid)
-      .await?
-      .ok_or_else(|| AppError::NotFound(format!("Competition {id} not found")))?;
+  let pool = state.pool.as_ref().ok_or_else(|| {
+    AppError::ServiceUnavailable("Database not available".to_string())
+  })?;
 
-    return Ok(Json(CompetitionResponse {
-      id: row.id,
-      on_chain_id: row.on_chain_id,
-      name: row.name,
-      format: row.format,
-      status: row.status,
-      entry_fee: row.entry_fee,
-      prize_pool: row.prize_pool,
-      max_agents: row.max_agents,
-      registered_count: row.registered_count,
-      start_time: row.start_time,
-      end_time: row.end_time,
-    }));
-  }
+  let row = crate::db::competitions::get_competition(pool, &uuid)
+    .await?
+    .ok_or_else(|| AppError::NotFound(format!("Competition {id} not found")))?;
 
-  // Mock data for skeleton mode
-  let now = Utc::now();
   Ok(Json(CompetitionResponse {
-    id: uuid,
-    on_chain_id: 1,
-    name: "Arena Alpha #1".to_string(),
-    format: "free_for_all".to_string(),
-    status: "active".to_string(),
-    entry_fee: 1_000_000,
-    prize_pool: 10_000_000,
-    max_agents: 16,
-    registered_count: 8,
-    start_time: now,
-    end_time: now + chrono::Duration::hours(168),
+    id: row.id,
+    on_chain_id: row.on_chain_id,
+    name: row.name,
+    format: row.format,
+    status: row.status,
+    entry_fee: row.entry_fee,
+    prize_pool: row.prize_pool,
+    max_agents: row.max_agents,
+    registered_count: row.registered_count,
+    start_time: row.start_time,
+    end_time: row.end_time,
   }))
 }
 
 /// GET /api/competitions/:id/leaderboard — get ranked agents for a competition.
-/// Returns mock data when no DB is connected.
 pub async fn get_leaderboard(
-  State(_state): State<Arc<AppState>>,
+  State(state): State<Arc<AppState>>,
   Path(id): Path<String>,
+  Query(params): Query<PaginationParams>,
 ) -> Result<Json<Vec<LeaderboardEntry>>, AppError> {
-  let _uuid = Uuid::parse_str(&id)
+  let uuid = Uuid::parse_str(&id)
     .map_err(|_| AppError::NotFound(format!("Invalid competition ID: {id}")))?;
 
-  // Leaderboard requires a scoring query across agents — for now return mock data.
-  // Production implementation will join competition_entries with computed scores.
-  Ok(Json(vec![
-    LeaderboardEntry {
-      rank: 1,
-      agent_mint: "Agent1Mint11111111111111111111111111111111111".to_string(),
-      agent_name: "AlphaBot".to_string(),
-      score: 7500,
-      pnl: 1_500_000,
-      trades: 42,
-      win_rate: 0.71,
-      max_drawdown: 0.08,
-    },
-    LeaderboardEntry {
-      rank: 2,
-      agent_mint: "Agent2Mint22222222222222222222222222222222222".to_string(),
-      agent_name: "DeltaHedge".to_string(),
-      score: 5200,
-      pnl: 800_000,
-      trades: 28,
-      win_rate: 0.64,
-      max_drawdown: 0.12,
-    },
-    LeaderboardEntry {
-      rank: 3,
-      agent_mint: "Agent3Mint33333333333333333333333333333333333".to_string(),
-      agent_name: "MomentumRider".to_string(),
-      score: 3100,
-      pnl: 350_000,
-      trades: 55,
-      win_rate: 0.58,
-      max_drawdown: 0.15,
-    },
-  ]))
+  let pool = state.pool.as_ref().ok_or_else(|| {
+    AppError::ServiceUnavailable("Database not available".to_string())
+  })?;
+
+  let limit = params.limit.unwrap_or(DEFAULT_LIMIT);
+  let offset = params.offset.unwrap_or(0);
+
+  let rows = crate::db::competitions::get_leaderboard_entries(pool, &uuid, limit, offset).await?;
+
+  let entries: Vec<LeaderboardEntry> = rows
+    .into_iter()
+    .enumerate()
+    .map(|(i, r)| LeaderboardEntry {
+      rank: (offset as i32) + (i as i32) + 1,
+      agent_mint: r.agent_mint,
+      agent_name: r.agent_name,
+      score: r.total_pnl,
+      pnl: r.total_pnl,
+      trades: r.trade_count,
+      win_rate: r.win_rate,
+      max_drawdown: 0.0, // Drawdown requires equity curve computation — deferred to scoring engine
+    })
+    .collect();
+
+  Ok(Json(entries))
 }
