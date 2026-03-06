@@ -81,29 +81,8 @@ export class ArenaClient {
    * record below is a best-effort mapping that will need adjustment
    * once we have the actual IDL instruction context.
    */
-  async createAgent(config: AgentConfig): Promise<CreateAgentResult> {
-    const mint = config.owner; // placeholder — real impl derives/creates mint
-    const [agentPda] = this.getAgentPda(mint);
-    const [arena] = this.getArenaPda();
-
-    const txSig = await (this.program.methods['createAgent'] as (
-      name: string,
-      uri: string,
-      strategyHash: Uint8Array,
-    ) => ProgramMethodBuilder)(
-      config.name,
-      config.uri,
-      config.strategyHash,
-    )
-      .accounts({
-        arena,
-        agent: agentPda,
-        agentMint: mint,
-        owner: this.provider.publicKey,
-      })
-      .rpc();
-
-    return { agentPda, mint, txSig };
+  async createAgent(_config: AgentConfig): Promise<CreateAgentResult> {
+    throw new Error('createAgent: mint creation not yet implemented. Use the on-chain program directly.');
   }
 
   /**
@@ -172,58 +151,85 @@ export class ArenaClient {
 // that should be verified once the IDL is generated.
 // ---------------------------------------------------------------------------
 
-function requireField<T>(data: Record<string, unknown>, key: string, label: string): T {
+function requireNumber(data: Record<string, unknown>, key: string, label: string): number {
   const value = data[key];
-  if (value === undefined || value === null) {
-    throw new Error(`Missing required field '${key}' in ${label}`);
+  if (value === undefined || value === null) throw new Error(`Missing required field '${key}' in ${label}`);
+  if (typeof value === 'number') return value;
+  // Handle BN objects from Anchor
+  if (typeof value === 'object' && 'toNumber' in (value as object)) return (value as { toNumber(): number }).toNumber();
+  throw new Error(`Expected number for '${key}' in ${label}, got ${typeof value}`);
+}
+
+function requireString(data: Record<string, unknown>, key: string, label: string): string {
+  const value = data[key];
+  if (value === undefined || value === null) throw new Error(`Missing required field '${key}' in ${label}`);
+  if (typeof value !== 'string') throw new Error(`Expected string for '${key}' in ${label}, got ${typeof value}`);
+  return value;
+}
+
+function requirePublicKey(data: Record<string, unknown>, key: string, label: string): PublicKey {
+  const value = data[key];
+  if (value === undefined || value === null) throw new Error(`Missing required field '${key}' in ${label}`);
+  if (value instanceof PublicKey) return value;
+  // Handle raw bytes
+  if (value instanceof Uint8Array) return new PublicKey(value);
+  if (typeof value === 'string') return new PublicKey(value);
+  throw new Error(`Expected PublicKey for '${key}' in ${label}, got ${typeof value}`);
+}
+
+function assertObject(raw: unknown, label: string): Record<string, unknown> {
+  if (typeof raw !== 'object' || raw === null) {
+    throw new Error(`Expected object for ${label}, got ${typeof raw}`);
   }
-  return value as T;
+  return raw as Record<string, unknown>;
 }
 
 function deserializeCompetition(_pubkey: PublicKey, raw: unknown): Competition {
-  const data = raw as Record<string, unknown>;
+  const data = assertObject(raw, 'Competition');
   return {
-    id: requireField<number>(data, 'id', 'Competition'),
-    name: requireField<string>(data, 'name', 'Competition'),
-    arena: requireField<PublicKey>(data, 'arena', 'Competition'),
-    format: requireField<Competition['format']>(data, 'format', 'Competition'),
-    status: requireField<Competition['status']>(data, 'status', 'Competition'),
-    entryFee: requireField<number>(data, 'entryFee', 'Competition'),
-    prizePool: requireField<number>(data, 'prizePool', 'Competition'),
-    maxAgents: requireField<number>(data, 'maxAgents', 'Competition'),
-    registeredCount: requireField<number>(data, 'registeredCount', 'Competition'),
-    startTime: requireField<number>(data, 'startTime', 'Competition'),
-    endTime: requireField<number>(data, 'endTime', 'Competition'),
-    prizeMint: requireField<PublicKey>(data, 'prizeMint', 'Competition'),
+    id: requireNumber(data, 'id', 'Competition'),
+    name: requireString(data, 'name', 'Competition'),
+    arena: requirePublicKey(data, 'arena', 'Competition'),
+    format: requireString(data, 'format', 'Competition') as Competition['format'],
+    status: requireString(data, 'status', 'Competition') as Competition['status'],
+    entryFee: requireNumber(data, 'entryFee', 'Competition'),
+    prizePool: requireNumber(data, 'prizePool', 'Competition'),
+    maxAgents: requireNumber(data, 'maxAgents', 'Competition'),
+    registeredCount: requireNumber(data, 'registeredCount', 'Competition'),
+    startTime: requireNumber(data, 'startTime', 'Competition'),
+    endTime: requireNumber(data, 'endTime', 'Competition'),
+    prizeMint: requirePublicKey(data, 'prizeMint', 'Competition'),
   };
 }
 
 function deserializeLeaderboardEntry(raw: unknown, rank: number): LeaderboardEntry {
-  const data = raw as Record<string, unknown>;
+  const data = assertObject(raw, 'LeaderboardEntry');
   return {
-    agentMint: requireField<PublicKey>(data, 'agentMint', 'LeaderboardEntry'),
-    agentName: (data['agentName'] as string | undefined) ?? 'Unknown',
+    agentMint: requirePublicKey(data, 'agentMint', 'LeaderboardEntry'),
+    agentName: typeof data['agentName'] === 'string' ? data['agentName'] : 'Unknown',
     rank,
-    score: (data['score'] as number | undefined) ?? 0,
-    pnl: (data['pnl'] as number | undefined) ?? 0,
-    trades: (data['trades'] as number | undefined) ?? 0,
-    winRate: (data['winRate'] as number | undefined) ?? 0,
+    score: typeof data['score'] === 'number' ? data['score'] : 0,
+    pnl: typeof data['pnl'] === 'number' ? data['pnl'] : 0,
+    trades: typeof data['trades'] === 'number' ? data['trades'] : 0,
+    winRate: typeof data['winRate'] === 'number' ? data['winRate'] : 0,
   };
 }
 
 function deserializeAgentProfile(raw: unknown): AgentProfile {
-  const data = raw as Record<string, unknown>;
+  const data = assertObject(raw, 'AgentProfile');
   return {
-    owner: requireField<PublicKey>(data, 'owner', 'AgentProfile'),
-    mint: requireField<PublicKey>(data, 'mint', 'AgentProfile'),
-    strategyHash: requireField<Uint8Array>(data, 'strategyHash', 'AgentProfile'),
-    eloRating: requireField<number>(data, 'eloRating', 'AgentProfile'),
-    wins: requireField<number>(data, 'wins', 'AgentProfile'),
-    losses: requireField<number>(data, 'losses', 'AgentProfile'),
-    totalPnl: requireField<number>(data, 'totalPnl', 'AgentProfile'),
-    totalTrades: requireField<number>(data, 'totalTrades', 'AgentProfile'),
-    competitionsEntered: requireField<number>(data, 'competitionsEntered', 'AgentProfile'),
-    status: requireField<AgentProfile['status']>(data, 'status', 'AgentProfile'),
-    createdAt: requireField<number>(data, 'createdAt', 'AgentProfile'),
+    owner: requirePublicKey(data, 'owner', 'AgentProfile'),
+    mint: requirePublicKey(data, 'mint', 'AgentProfile'),
+    strategyHash: data['strategyHash'] instanceof Uint8Array
+      ? data['strategyHash']
+      : (() => { throw new Error(`Expected Uint8Array for 'strategyHash' in AgentProfile`); })(),
+    eloRating: requireNumber(data, 'eloRating', 'AgentProfile'),
+    wins: requireNumber(data, 'wins', 'AgentProfile'),
+    losses: requireNumber(data, 'losses', 'AgentProfile'),
+    totalPnl: requireNumber(data, 'totalPnl', 'AgentProfile'),
+    totalTrades: requireNumber(data, 'totalTrades', 'AgentProfile'),
+    competitionsEntered: requireNumber(data, 'competitionsEntered', 'AgentProfile'),
+    status: requireString(data, 'status', 'AgentProfile') as AgentProfile['status'],
+    createdAt: requireNumber(data, 'createdAt', 'AgentProfile'),
   };
 }

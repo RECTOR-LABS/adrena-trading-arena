@@ -14,7 +14,12 @@ export class PositionManager {
     private trader: AdrenaTrader,
     private riskParams: RiskParams,
     private capital: number,
-  ) {}
+  ) {
+    if (riskParams.maxLeverage <= 0) throw new Error('maxLeverage must be positive');
+    if (riskParams.maxPositionPct <= 0 || riskParams.maxPositionPct > 100) throw new Error('maxPositionPct must be 1-100');
+    if (riskParams.stopLossPct <= 0) throw new Error('stopLossPct must be positive');
+    if (riskParams.takeProfitPct <= 0) throw new Error('takeProfitPct must be positive');
+  }
 
   /**
    * Evaluate a signal against risk parameters and execute the appropriate trade.
@@ -59,7 +64,10 @@ export class PositionManager {
         (signal === 'LONG' && currentPosition.side === 'short') ||
         (signal === 'SHORT' && currentPosition.side === 'long')
       ) {
-        await this.closePosition(currentPosition, market.price);
+        const closeResult = await this.closePosition(currentPosition, market.price);
+        if (!closeResult.txSig) {
+          return { action: 'blocked', reason: 'Failed to close existing position for reversal' };
+        }
       } else {
         // Already in same direction — hold
         return { action: 'hold', reason: `Already in ${currentPosition.side} position` };
@@ -67,7 +75,7 @@ export class PositionManager {
     }
 
     // Open new position
-    const positionSize = this.calcPositionSize(market.price);
+    const positionSize = this.calcPositionSize();
     if (positionSize <= 0) {
       return { action: 'blocked', reason: 'Position size too small' };
     }
@@ -75,7 +83,7 @@ export class PositionManager {
     const tradeOwner = owner;
     const tradeCustody = custody;
     const leverage = this.riskParams.maxLeverage;
-    const slippageBps = 50; // 0.5% default slippage tolerance
+    const slippageBps = this.riskParams.defaultSlippageBps ?? 50;
 
     const params = {
       owner: tradeOwner,
@@ -115,10 +123,9 @@ export class PositionManager {
    * Calculate position size in USD based on capital and risk params.
    * Respects maxPositionPct (max % of capital per position).
    */
-  calcPositionSize(price: number): number {
-    if (price <= 0 || this.capital <= 0) return 0;
-    const maxAllocation = this.capital * (this.riskParams.maxPositionPct / 100);
-    return maxAllocation;
+  calcPositionSize(): number {
+    if (this.capital <= 0) return 0;
+    return this.capital * (this.riskParams.maxPositionPct / 100);
   }
 
   /** Update the capital amount (e.g., after PnL realization). */
@@ -136,7 +143,7 @@ export class PositionManager {
       owner: position.owner,
       mint: position.custody,
       price: currentPrice,
-      slippageBps: 50,
+      slippageBps: this.riskParams.defaultSlippageBps ?? 50,
     };
 
     if (position.side === 'long') {

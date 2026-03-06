@@ -40,6 +40,10 @@ describe('math utilities', () => {
       expect(calcPnlPct(100, 90, 'short')).toBe(10);
       expect(calcPnlPct(100, 110, 'short')).toBe(-10);
     });
+    it('returns 0 for zero entryPrice', () => {
+      expect(calcPnlPct(0, 100, 'long')).toBe(0);
+      expect(calcPnlPct(0, 100, 'short')).toBe(0);
+    });
   });
 
   describe('calcLeverage', () => {

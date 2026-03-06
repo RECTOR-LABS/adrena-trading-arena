@@ -55,6 +55,8 @@ export class AgentExecutor {
   private onError?: (error: unknown) => void;
 
   private intervalId: ReturnType<typeof setInterval> | null = null;
+  private ticking = false;
+  private tickPromise: Promise<void> | null = null;
   private stats: ExecutorStats = {
     totalTicks: 0,
     totalTrades: 0,
@@ -69,6 +71,10 @@ export class AgentExecutor {
   };
 
   constructor(config: AgentExecutorConfig) {
+    if (config.tickIntervalMs <= 0) throw new Error('tickIntervalMs must be positive');
+    if (config.capital < 0) throw new Error('capital must be non-negative');
+    if ((config.lookback ?? 20) <= 0) throw new Error('lookback must be positive');
+
     this.strategy = config.strategy;
     this.trader = config.trader;
     this.priceFeed = config.priceFeed;
@@ -128,21 +134,31 @@ export class AgentExecutor {
 
     this.stats.startedAt = Date.now();
     this.intervalId = setInterval(() => {
-      this.tick().catch((err: unknown) => {
-        this.stats.errors++;
-        this.stats.lastError = err instanceof Error ? err.message : String(err);
-        this.onError?.(err);
-      });
+      if (this.ticking) return;
+      this.ticking = true;
+      this.tickPromise = this.tick()
+        .catch((err: unknown) => {
+          this.stats.errors++;
+          this.stats.lastError = err instanceof Error ? err.message : String(err);
+          this.onError?.(err);
+        })
+        .finally(() => {
+          this.ticking = false;
+          this.tickPromise = null;
+        });
     }, this.tickIntervalMs);
   }
 
   /**
-   * Stop the tick loop.
+   * Stop the tick loop and wait for any in-flight tick to complete.
    */
-  stop(): void {
+  async stop(): Promise<void> {
     if (this.intervalId !== null) {
       clearInterval(this.intervalId);
       this.intervalId = null;
+    }
+    if (this.tickPromise) {
+      await this.tickPromise;
     }
   }
 

@@ -1,5 +1,6 @@
 /** Simple Moving Average */
 export function sma(data: number[], period: number): number | null {
+  if (data.length === 0 || data.some(v => !Number.isFinite(v))) return null;
   if (data.length < period) return null;
   const slice = data.slice(-period);
   return slice.reduce((sum, v) => sum + v, 0) / period;
@@ -7,6 +8,7 @@ export function sma(data: number[], period: number): number | null {
 
 /** SMA series -- compute SMA for each valid window */
 export function smaSeries(data: number[], period: number): number[] {
+  if (data.length === 0 || data.some(v => !Number.isFinite(v))) return [];
   const result: number[] = [];
   for (let i = period - 1; i < data.length; i++) {
     const slice = data.slice(i - period + 1, i + 1);

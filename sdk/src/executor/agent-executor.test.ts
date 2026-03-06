@@ -17,6 +17,7 @@ function makeStrategy(signalOverride?: Signal): ArenaStrategy {
       maxPositionPct: 20,
       stopLossPct: 5,
       takeProfitPct: 10,
+      defaultSlippageBps: 50,
     },
     evaluate(_market: MarketState): Signal {
       return signalOverride ?? 'HOLD';
@@ -158,15 +159,15 @@ describe('AgentExecutor', () => {
       executor = createExecutor(makeStrategy('HOLD'));
     });
 
-    afterEach(() => {
-      executor.stop();
+    afterEach(async () => {
+      await executor.stop();
     });
 
-    it('starts and stops without error', () => {
+    it('starts and stops without error', async () => {
       expect(executor.isRunning()).toBe(false);
       executor.start();
       expect(executor.isRunning()).toBe(true);
-      executor.stop();
+      await executor.stop();
       expect(executor.isRunning()).toBe(false);
     });
 
@@ -175,17 +176,59 @@ describe('AgentExecutor', () => {
       expect(() => executor.start()).toThrow('already running');
     });
 
-    it('stop is idempotent', () => {
-      executor.stop(); // Not running — should not throw
+    it('stop is idempotent', async () => {
+      await executor.stop(); // Not running — should not throw
       executor.start();
-      executor.stop();
-      executor.stop(); // Double stop — should not throw
+      await executor.stop();
+      await executor.stop(); // Double stop — should not throw
     });
 
     it('sets startedAt timestamp', () => {
       expect(executor.getStats().startedAt).toBeNull();
       executor.start();
       expect(executor.getStats().startedAt).toBeGreaterThan(0);
+    });
+  });
+
+  describe('config validation', () => {
+    it('throws on non-positive tickIntervalMs', () => {
+      expect(() => new AgentExecutor({
+        strategy: makeStrategy(),
+        trader,
+        priceFeed,
+        capital: 10_000,
+        tickIntervalMs: 0,
+        owner: OWNER,
+        mint: MINT,
+        custody: CUSTODY,
+      })).toThrow('tickIntervalMs must be positive');
+    });
+
+    it('throws on negative capital', () => {
+      expect(() => new AgentExecutor({
+        strategy: makeStrategy(),
+        trader,
+        priceFeed,
+        capital: -1,
+        tickIntervalMs: 1000,
+        owner: OWNER,
+        mint: MINT,
+        custody: CUSTODY,
+      })).toThrow('capital must be non-negative');
+    });
+
+    it('throws on non-positive lookback', () => {
+      expect(() => new AgentExecutor({
+        strategy: makeStrategy(),
+        trader,
+        priceFeed,
+        capital: 10_000,
+        tickIntervalMs: 1000,
+        owner: OWNER,
+        mint: MINT,
+        custody: CUSTODY,
+        lookback: -5,
+      })).toThrow('lookback must be positive');
     });
   });
 });

@@ -32,6 +32,20 @@ export class HermesPriceFeed implements PriceFeed {
     this.endpoint = endpoint.replace(/\/$/, '');
   }
 
+  private async fetchWithRetry(url: string, maxRetries = 3): Promise<Response> {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const res = await fetch(url);
+      if (res.ok) return res;
+      if (res.status === 429 || res.status >= 500) {
+        const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+      throw new Error(`Hermes API error: ${res.status} ${res.statusText}`);
+    }
+    throw new Error(`Hermes API failed after ${maxRetries} retries`);
+  }
+
   async getPrice(symbol: string): Promise<number> {
     const feedId = PYTH_FEED_IDS[symbol];
     if (!feedId) {
@@ -39,10 +53,7 @@ export class HermesPriceFeed implements PriceFeed {
     }
 
     const url = `${this.endpoint}/v2/updates/price/latest?ids[]=${feedId}`;
-    const res = await fetch(url);
-    if (!res.ok) {
-      throw new Error(`Hermes API error: ${res.status} ${res.statusText}`);
-    }
+    const res = await this.fetchWithRetry(url);
 
     const data = (await res.json()) as HermesResponse;
     if (!data.parsed?.length) {
@@ -70,16 +81,16 @@ export class HermesPriceFeed implements PriceFeed {
     const recentHistory = history.slice(-lookback);
     const prices = recentHistory.map((h) => h.price);
 
-    const high24h = Math.max(...prices);
-    const low24h = Math.min(...prices);
+    const highRecent = Math.max(...prices);
+    const lowRecent = Math.min(...prices);
 
     return {
       symbol,
       price: currentPrice,
       prices,
       volumes: prices.map(() => 0), // Hermes doesn't provide volume
-      high24h,
-      low24h,
+      highRecent,
+      lowRecent,
       volume24h: 0,
       timestamp: Date.now(),
     };
@@ -154,8 +165,8 @@ export class MockPriceFeed implements PriceFeed {
       price: currentPrice,
       prices,
       volumes: prices.map(() => 1000),
-      high24h: Math.max(...prices),
-      low24h: Math.min(...prices),
+      highRecent: Math.max(...prices),
+      lowRecent: Math.min(...prices),
       volume24h: 100_000,
       timestamp: Date.now(),
     };

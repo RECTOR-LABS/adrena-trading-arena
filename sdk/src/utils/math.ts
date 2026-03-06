@@ -12,6 +12,7 @@ export function applySlippage(price: number, slippageBps: number, side: 'buy' | 
 }
 
 export function calcPnlPct(entryPrice: number, currentPrice: number, side: 'long' | 'short'): number {
+  if (entryPrice === 0) return 0;
   if (side === 'long') {
     return ((currentPrice - entryPrice) / entryPrice) * 100;
   }

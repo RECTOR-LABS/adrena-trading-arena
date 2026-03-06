@@ -26,6 +26,11 @@ describe('PDA derivations', () => {
     expect(pda1.toBase58()).not.toBe(pda2.toBase58());
   });
 
+  it('throws for negative competition ID', () => {
+    const arena = Keypair.generate().publicKey;
+    expect(() => findCompetitionPda(arena, -1, PROGRAM_ID)).toThrow('Competition ID must be non-negative');
+  });
+
   it('derives enrollment PDA from competition + agent', () => {
     const competition = Keypair.generate().publicKey;
     const agent = Keypair.generate().publicKey;
