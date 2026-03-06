@@ -8,6 +8,14 @@ pub struct Config {
   #[arg(long, env = "GRPC_ENDPOINT")]
   pub grpc_endpoint: Option<String>,
 
+  /// Solana WebSocket RPC URL for programSubscribe (devnet-compatible).
+  #[arg(long, env = "WS_RPC_URL", default_value = "wss://api.devnet.solana.com")]
+  pub ws_rpc_url: String,
+
+  /// Use MockPositionSubscriber instead of the real WebSocket subscriber.
+  #[arg(long, env = "USE_MOCK_SUBSCRIBER", default_value = "true")]
+  pub use_mock_subscriber: bool,
+
   #[arg(long, env = "ADRENA_PROGRAM_ID", default_value = "13gDzEXCdocbj8iAiqrScGo47NiSuYENGsRqi3SEAwet")]
   pub adrena_program_id: String,
 
