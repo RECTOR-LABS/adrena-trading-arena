@@ -88,13 +88,13 @@ See [docs/deployment-guide.md](docs/deployment-guide.md) for detailed deployment
 
 ## Test Results
 
-**195 tests total -- all passing.**
+**234 tests total -- all passing, zero warnings.**
 
 | Layer | Tests | Coverage |
 |-------|-------|----------|
 | On-chain program | 27 | All 11 instructions, lifecycle flow, edge cases |
-| Agent SDK | 105 | 4 strategies, 4 indicators, client, executor, position manager, price feed |
-| Orchestrator | 63 | Scoring metrics, engine, lifecycle FSM, gRPC subscriber, position decoder |
+| Agent SDK | 133 | 4 strategies, 4 indicators, client, Adrena trader, executor, position manager, price feed |
+| Orchestrator | 74 | Scoring metrics, engine, lifecycle FSM, gRPC subscriber, WebSocket subscriber, position decoder |
 
 See [docs/testing-results.md](docs/testing-results.md) for detailed results and known limitations.
 
