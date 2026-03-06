@@ -5,6 +5,8 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 
+const POSITION_COLUMNS: &str = "id, agent_mint, competition_id, custody, side, size_usd, collateral_usd, entry_price, mark_price, unrealized_pnl, leverage, snapshot_at";
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PositionSnapshotRow {
   pub id: Uuid,
@@ -22,21 +24,21 @@ pub struct PositionSnapshotRow {
 }
 
 impl PositionSnapshotRow {
-  fn from_row(row: &tokio_postgres::Row) -> Self {
-    Self {
-      id: row.get("id"),
-      agent_mint: row.get("agent_mint"),
-      competition_id: row.get("competition_id"),
-      custody: row.get("custody"),
-      side: row.get("side"),
-      size_usd: row.get("size_usd"),
-      collateral_usd: row.get("collateral_usd"),
-      entry_price: row.get("entry_price"),
-      mark_price: row.get("mark_price"),
-      unrealized_pnl: row.get("unrealized_pnl"),
-      leverage: row.get("leverage"),
-      snapshot_at: row.get("snapshot_at"),
-    }
+  fn from_row(row: &tokio_postgres::Row) -> Result<Self, AppError> {
+    Ok(Self {
+      id: row.try_get("id").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+      agent_mint: row.try_get("agent_mint").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+      competition_id: row.try_get("competition_id").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+      custody: row.try_get("custody").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+      side: row.try_get("side").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+      size_usd: row.try_get("size_usd").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+      collateral_usd: row.try_get("collateral_usd").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+      entry_price: row.try_get("entry_price").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+      mark_price: row.try_get("mark_price").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+      unrealized_pnl: row.try_get("unrealized_pnl").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+      leverage: row.try_get("leverage").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+      snapshot_at: row.try_get("snapshot_at").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
+    })
   }
 }
 
@@ -81,16 +83,18 @@ pub async fn get_latest_positions(
   let client = pool.get().await?;
   let rows = client
     .query(
-      "SELECT * FROM position_snapshots
-       WHERE agent_mint = $1 AND competition_id = $2
-         AND snapshot_at = (
-           SELECT MAX(snapshot_at) FROM position_snapshots
-           WHERE agent_mint = $1 AND competition_id = $2
-         )
-       ORDER BY custody",
+      &format!(
+        "SELECT {POSITION_COLUMNS} FROM position_snapshots
+         WHERE agent_mint = $1 AND competition_id = $2
+           AND snapshot_at = (
+             SELECT MAX(snapshot_at) FROM position_snapshots
+             WHERE agent_mint = $1 AND competition_id = $2
+           )
+         ORDER BY custody"
+      ),
       &[&agent_mint, competition_id],
     )
     .await?;
 
-  Ok(rows.iter().map(PositionSnapshotRow::from_row).collect())
+  rows.iter().map(PositionSnapshotRow::from_row).collect()
 }

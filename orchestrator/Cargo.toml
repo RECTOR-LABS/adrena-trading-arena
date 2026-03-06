@@ -27,6 +27,9 @@ serde_json = "1"
 # Streaming
 tokio-stream = { version = "0.1", features = ["sync"] }
 
+# HTTP types (for CORS configuration)
+http = "1"
+
 # Utilities
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4", features = ["derive", "env"] }

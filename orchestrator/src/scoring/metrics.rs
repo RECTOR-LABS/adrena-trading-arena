@@ -1,5 +1,18 @@
 use serde::{Deserialize, Serialize};
 
+// ── Scoring constants ─────────────────────────────────────────────────────────
+
+/// Denominator for activity multiplier: trades / scale.
+const ACTIVITY_TRADE_SCALE: f64 = 10.0;
+/// Maximum activity multiplier (caps spam incentive).
+const ACTIVITY_MULTIPLIER_CAP: f64 = 2.0;
+/// Duration window in hours for full duration bonus (1 week).
+const DURATION_WINDOW_HOURS: f64 = 168.0;
+/// Maximum additional duration bonus on top of 1.0 base.
+const DURATION_BONUS_CAP: f64 = 0.5;
+/// Minimum drawdown floor to prevent division discontinuity.
+const MIN_DRAWDOWN_FLOOR: f64 = 0.01;
+
 /// Minimal trade data needed for scoring calculations.
 /// Decoupled from DB row to keep scoring functions pure.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,7 +53,7 @@ pub fn calc_max_drawdown(equity_curve: &[i64]) -> f64 {
   max_dd
 }
 
-/// Annualized Sharpe ratio given a series of periodic returns.
+/// Sharpe-like ratio (not annualized) given a series of periodic returns.
 ///
 /// `returns` — fractional returns per period (e.g., daily returns as decimals).
 /// `risk_free_rate` — risk-free rate per period (same frequency as returns).
@@ -78,10 +91,11 @@ pub fn calc_win_rate(trades: &[TradeData]) -> f64 {
 
 /// Composite Arena Score that balances profitability, risk management, and engagement.
 ///
-/// Formula: `(net_pnl / max_drawdown) * activity_multiplier * duration_bonus`
+/// Formula: `(net_pnl / dd_floor) * activity_multiplier * duration_bonus`
 ///
-/// - **Risk-adjusted return**: `net_pnl / max_drawdown` rewards agents that profit
-///   without excessive drawdowns. If drawdown is zero, uses net_pnl directly.
+/// - **Risk-adjusted return**: `net_pnl / max(max_drawdown, 0.01)` rewards agents that profit
+///   without excessive drawdowns. A minimum 1% drawdown floor prevents discontinuity
+///   when drawdown is zero.
 /// - **Activity multiplier**: `min(trade_count / 10, 2.0)` — rewards active traders,
 ///   caps at 2x to prevent spam.
 /// - **Duration bonus**: `1.0 + min(duration_hours / 168.0, 0.5)` — rewards longer
@@ -94,18 +108,15 @@ pub fn calc_arena_score(
   trade_count: u32,
   duration_hours: f64,
 ) -> f64 {
-  // Risk-adjusted return: if no drawdown, use raw P&L as the base
-  let risk_adjusted = if max_drawdown < f64::EPSILON {
-    net_pnl as f64
-  } else {
-    net_pnl as f64 / max_drawdown
-  };
+  // Risk-adjusted return with drawdown floor to prevent discontinuity
+  let dd_floor = max_drawdown.max(MIN_DRAWDOWN_FLOOR);
+  let risk_adjusted = net_pnl as f64 / dd_floor;
 
-  // Activity multiplier: min(trades / 10, 2.0)
-  let activity_multiplier = (trade_count as f64 / 10.0).min(2.0);
+  // Activity multiplier: min(trades / scale, cap)
+  let activity_multiplier = (trade_count as f64 / ACTIVITY_TRADE_SCALE).min(ACTIVITY_MULTIPLIER_CAP);
 
-  // Duration bonus: 1.0 + min(hours / 168, 0.5)
-  let duration_bonus = 1.0 + (duration_hours / 168.0).min(0.5);
+  // Duration bonus: 1.0 + min(hours / window, cap)
+  let duration_bonus = 1.0 + (duration_hours / DURATION_WINDOW_HOURS).min(DURATION_BONUS_CAP);
 
   risk_adjusted * activity_multiplier * duration_bonus
 }
@@ -270,11 +281,12 @@ mod tests {
 
   #[test]
   fn arena_score_profitable_no_drawdown() {
-    // No drawdown -> risk_adjusted = net_pnl (1000)
+    // No drawdown -> dd_floor = 0.01, risk_adjusted = 1000 / 0.01 = 100_000
     // 20 trades -> activity = min(20/10, 2.0) = 2.0
     // 168 hours -> duration = 1.0 + min(168/168, 0.5) = 1.5
+    // Score = 100_000 * 2.0 * 1.5 = 300_000
     let score = calc_arena_score(1000, 0.0, 20, 168.0);
-    assert!((score - 3000.0).abs() < 1e-10, "expected 3000.0, got {score}");
+    assert!((score - 300_000.0).abs() < 1e-10, "expected 300_000.0, got {score}");
   }
 
   #[test]
@@ -290,17 +302,19 @@ mod tests {
   #[test]
   fn arena_score_activity_cap() {
     // 100 trades -> activity = min(100/10, 2.0) = 2.0 (capped)
+    // dd_floor = max(0.0, 0.01) = 0.01, risk_adjusted = 100 / 0.01 = 10_000
     let score = calc_arena_score(100, 0.0, 100, 0.0);
-    // risk_adjusted = 100, activity = 2.0, duration = 1.0
-    assert!((score - 200.0).abs() < 1e-10, "expected 200.0, got {score}");
+    // risk_adjusted = 10_000, activity = 2.0, duration = 1.0
+    assert!((score - 20_000.0).abs() < 1e-10, "expected 20_000.0, got {score}");
   }
 
   #[test]
   fn arena_score_duration_cap() {
     // 500 hours -> duration = 1.0 + min(500/168, 0.5) = 1.5 (capped)
+    // dd_floor = 0.01, risk_adjusted = 100 / 0.01 = 10_000
     let score = calc_arena_score(100, 0.0, 10, 500.0);
-    // risk_adjusted = 100, activity = 1.0, duration = 1.5
-    assert!((score - 150.0).abs() < 1e-10, "expected 150.0, got {score}");
+    // risk_adjusted = 10_000, activity = 1.0, duration = 1.5
+    assert!((score - 15_000.0).abs() < 1e-10, "expected 15_000.0, got {score}");
   }
 
   #[test]
@@ -318,6 +332,17 @@ mod tests {
     assert!(
       score_few < score_many,
       "fewer trades ({score_few}) should score lower than more trades ({score_many})"
+    );
+  }
+
+  #[test]
+  fn arena_score_drawdown_floor_prevents_discontinuity() {
+    // With drawdown = 0.0 and drawdown = 0.005 (below floor), scores should be identical
+    let score_zero_dd = calc_arena_score(1000, 0.0, 10, 100.0);
+    let score_tiny_dd = calc_arena_score(1000, 0.005, 10, 100.0);
+    assert!(
+      (score_zero_dd - score_tiny_dd).abs() < f64::EPSILON,
+      "zero dd ({score_zero_dd}) and tiny dd ({score_tiny_dd}) should produce same score due to floor"
     );
   }
 }

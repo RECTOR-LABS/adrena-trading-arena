@@ -98,6 +98,7 @@ dependencies = [
  "chrono",
  "clap",
  "deadpool-postgres",
+ "http",
  "refinery",
  "serde",
  "serde_json",
