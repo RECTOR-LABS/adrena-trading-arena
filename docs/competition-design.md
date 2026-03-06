@@ -44,8 +44,8 @@ The Arena is a three-layer system. The on-chain program owns the source of truth
 |    ARENA PROGRAM         |  |     ADRENA PROGRAM           |
 |    (Anchor / Solana)     |  |     (existing, 101 ixs)      |
 |                          |  |                              |
-|  - Agent NFTs            |  |  - openPerpTradeLong/Short   |
-|    (Metaplex Core)       |  |  - closePerpTradeLong/Short  |
+|  - Agent NFTs            |  |  - open...WithSwapLong/Short |
+|    (Metaplex Core)       |  |  - closePositionLong/Short   |
 |  - Competition accounts  |  |  - Position PDAs             |
 |  - Prize vault (PDA)     |  |  - UserProfile + Mutagen     |
 |  - Enrollment tracking   |  |  - Pool / Custody accounts   |
@@ -287,7 +287,7 @@ The entry fee transfer uses `token_interface`, making it compatible with both SP
 
 During the Active phase, agents trade on Adrena Protocol's perpetual exchange using real capital:
 
-- **All trades are real on-chain transactions** -- positions opened via Adrena's `openPerpTradeLong/Short` instructions, closed via `closePerpTradeLong/Short`. No simulation.
+- **All trades are real on-chain transactions** -- positions opened via Adrena's `openOrIncreasePositionWithSwapLong/Short` instructions, closed via `closePositionLong/Short`. No simulation.
 - **Maximum leverage**: Enforced by the strategy's `RiskParams.maxLeverage` field in the SDK's PositionManager. The PositionManager blocks any trade that would exceed the configured leverage cap.
 - **Position size limits**: `RiskParams.maxPositionPct` constrains position size as a percentage of capital. Combined with the competition's `scoring_params.position_size_cap` for a hard on-chain limit.
 - **Stop-loss / Take-profit**: Enforced by the PositionManager at the SDK level. The manager checks price levels on every tick and closes positions that breach thresholds.
@@ -500,41 +500,172 @@ Day 9+ |  Winners claim prizes at their convenience
 
 ## 6. Integration with Adrena Protocol
 
-### 6.1 Trading Integration
+The Arena integrates with Adrena's program (`13gDzEXCdocbj8iAiqrScGo47NiSuYENGsRqi3SEAwet`) at three levels: direct trading instruction invocation (automatic), off-chain system participation (automatic), and admin-gated features (requires Adrena team cooperation). This section is explicit about which category each integration point falls into.
 
-Agents execute trades through Adrena's actual perpetual exchange instructions. The SDK's `AdrenaWrapper` provides a clean interface over Adrena's program:
+### 6.1 Technical Integration Architecture
 
-- `openLong(owner, custody, size, leverage)` -> Calls Adrena's `openPerpTradeLong`
-- `openShort(owner, custody, size, leverage)` -> Calls Adrena's `openPerpTradeShort`
-- `closeLong(owner, custody)` -> Calls Adrena's `closePerpTradeLong`
-- `closeShort(owner, custody)` -> Calls Adrena's `closePerpTradeShort`
-- `getPosition(owner, custody)` -> Reads Adrena position PDA
+#### 6.1.1 Trade Execution Flow
 
-**Position monitoring** uses Yellowstone gRPC subscriptions to Adrena's position account changes. The orchestrator's `PositionSubscriber` trait provides a clean abstraction -- real implementation subscribes via gRPC, mock implementation enables deterministic testing.
+Arena agents execute **real trades on Adrena's perpetual exchange** -- not simulations. The SDK provides the `AdrenaTrader` interface (`sdk/src/client/adrena-wrapper.ts`) that maps to Adrena's on-chain instructions:
+
+| SDK Method | Adrena Instruction | Direction |
+|------------|-------------------|-----------|
+| `openLong(params)` | `openOrIncreasePositionWithSwapLong` | Opens/increases long position |
+| `openShort(params)` | `openOrIncreasePositionWithSwapShort` | Opens/increases short position |
+| `closeLong(params)` | `closePositionLong` | Closes long position |
+| `closeShort(params)` | `closePositionShort` | Closes short position |
+| `getPosition(owner, custody)` | Reads Position PDA | Fetches current position state |
+
+**Trade parameters** include `owner` (agent wallet), `mint` (custody token), `collateral` (position size in USD), `leverage` (bounded by `RiskParams.maxLeverage`), `price` (from Pyth), and `slippageBps` (default 50 = 0.5%).
+
+**Account flow for opening a position:**
+
+```
+Agent wallet (signer)
+  → AdrenaTrader.openLong({ owner, mint, collateral, leverage, price, slippageBps })
+    → Adrena program: openOrIncreasePositionWithSwapLong
+      Accounts required:
+        - owner (signer)
+        - fundingAccount (owner's token account)
+        - receivingAccount (owner's token account for PnL)
+        - transferAuthority (Adrena PDA)
+        - pool (Adrena main pool)
+        - custody (token custody, e.g., SOL, ETH, BTC)
+        - position (PDA: ["position", owner, pool, custody, "long"])
+        - userProfile (optional -- PDA: ["user_profile", owner])
+      → Creates/updates Position PDA on-chain
+```
+
+**Position PDA derivation**: `["position", owner_wallet, pool_pubkey, custody_pubkey, side]` -- one position per side per custody per pool per wallet. This is an Adrena constraint, not an Arena one.
+
+**Risk enforcement layer**: The `PositionManager` (`sdk/src/executor/position-manager.ts`) sits between the strategy signal and trade execution, enforcing:
+- Maximum leverage cap (`RiskParams.maxLeverage`)
+- Position size as percentage of capital (`RiskParams.maxPositionPct`)
+- Stop-loss triggers (`RiskParams.stopLossPct` -- checked every tick)
+- Take-profit triggers (`RiskParams.takeProfitPct` -- checked every tick)
+- Automatic opposite-position closure before reversal trades
+
+#### 6.1.2 Position Monitoring
+
+The orchestrator monitors all agent positions via Yellowstone gRPC account subscriptions, targeting Adrena's program ID.
+
+**Subscriber architecture** (`orchestrator/src/grpc/subscriber.rs`):
+- Trait-based `PositionSubscriber` produces `PositionUpdate` values via `tokio::sync::mpsc`
+- Real implementation subscribes to Adrena program account changes via `yellowstone-grpc-client`
+- Mock implementation (`MockPositionSubscriber`) enables deterministic testing with pre-loaded position data
+
+**Position decoding** (`orchestrator/src/grpc/position_decoder.rs`):
+- Borsh deserialization of Adrena's `Position` account layout
+- Skips 8-byte Anchor discriminator prefix
+- Extracts: `owner [u8; 32]`, `custody [u8; 32]`, `side u8` (0=long, 1=short), `size_usd u64`, `collateral_usd u64`, `entry_price u64`, `unrealized_pnl_usd i64`
+- All USD values in micro-units (6 decimals) matching Adrena's on-chain representation
+
+**Configuration** (`orchestrator/src/config.rs`):
+```
+ADRENA_PROGRAM_ID = "13gDzEXCdocbj8iAiqrScGo47NiSuYENGsRqi3SEAwet"
+ARENA_PROGRAM_ID  = "PBPaxmk2fFuvXFqiTM4c6FmuEP4tr8eK8wpa4HroVq6"
+GRPC_ENDPOINT     = <yellowstone gRPC endpoint>
+```
 
 **Price feeds** use Pyth Hermes API (`hermes.pyth.network`) for real-time price data. The SDK's `PriceFeed` interface supports both live Hermes data and mock feeds for testing.
 
-### 6.2 Existing System Compatibility
+#### 6.1.3 Autonomous Execution Loop
 
-The Arena is designed as an **additive layer** that complements Adrena's existing infrastructure:
+The `AgentExecutor` (`sdk/src/executor/agent-executor.ts`) runs the complete trading cycle:
 
-| Existing System | Arena Integration |
-|----------------|-------------------|
-| **Mutagen Points** | Arena trades generate mutagen through the existing formula: `(Trade Performance + Trade Duration) x Size Multiplier`. No changes to Mutagen needed -- it just works. |
-| **Leaderboard** | Arena adds a dedicated tab alongside the existing P&L leaderboard. Agent rankings coexist with human trader rankings. |
-| **UserProfile** | Agents can be linked to Adrena UserProfiles for achievement tracking. Arena results can trigger `grantOrRemoveAchievement` for on-chain badges. |
-| **Keeper infrastructure** | The orchestrator follows Adrena's existing patterns: Yellowstone gRPC subscriptions, PostgreSQL storage, Rust implementation. Shares the same technology stack as MrHerald, MrOracle, and MrSablierStaking. |
-| **Divisions** | Arena ELO tiers map naturally to Adrena's 4-division structure, enabling cross-system consistency. |
-| **Teams (Bonk/Jito)** | Team-based Arena competitions map to Adrena's existing team framework. |
+```
+Every tick (30s - 5min, configurable):
+  1. PriceFeed.getMarketState(symbol, lookback)     → MarketState
+  2. Strategy.evaluate(market)                       → Signal (LONG | SHORT | CLOSE | HOLD)
+  3. AdrenaTrader.getPosition(owner, custody)        → PositionInfo | null
+  4. PositionManager.executeSignal(signal, market, position, owner, custody)
+     → Risk checks (stop-loss / take-profit)
+     → If signal = LONG/SHORT with opposite position open → close first
+     → Execute trade via AdrenaTrader
+     → Return TradeResult with tx signature
+  5. Update ExecutorStats (totalTicks, totalTrades, longs, shorts, closes, holds, errors)
+```
 
-### 6.3 Autonomous Agent Support
+The `ArenaStrategy` interface (`sdk/src/types/strategy.ts`) is intentionally minimal:
+```typescript
+interface ArenaStrategy {
+  readonly name: string;
+  evaluate(market: MarketState): Signal;  // LONG | SHORT | CLOSE | HOLD
+  readonly riskParams: RiskParams;
+}
+```
 
-The Arena extends Adrena's `solana-agent-kit` fork:
+4 preset strategies (Momentum, Mean Reversion, Breakout, Scalper) are included. Developers can implement the interface with any logic -- simple moving average crossovers, ML models, or external signal feeds.
 
-- **ArenaStrategy interface**: Any strategy that implements `{ name, evaluate(market), riskParams }` can participate. The interface is intentionally minimal to maximize creativity.
-- **Preset strategies**: 4 battle-tested templates (Momentum, Mean Reversion, Breakout, Scalper) lower the entry barrier. Users configure parameters without writing code.
-- **Custom strategies**: Developers write TypeScript strategies using the full SDK. Access to technical indicators (SMA, EMA, Bollinger Bands, RSI), position management, and price feeds.
-- **AgentExecutor**: Tick-based execution loop that runs strategies autonomously. Configurable interval, automatic error handling, built-in statistics tracking.
+### 6.2 Integration with Adrena's Existing Systems
+
+#### Automatic Integration (no code changes needed on Adrena's side)
+
+These work because Arena agents execute real Adrena transactions. The Adrena indexer and off-chain systems see these as normal trades.
+
+| System | How It Works | Status |
+|--------|-------------|--------|
+| **Trading** | Agents call `openOrIncreasePositionWithSwapLong/Short` and `closePositionLong/Short` directly on Adrena's program. Positions, fees, and liquidations follow standard Adrena mechanics. | Implemented (`sdk/src/client/adrena-wrapper.ts`) |
+| **Mutagen Points** | Adrena's off-chain indexer scores Mutagen from on-chain tx data using `(Trade Performance + Trade Duration) x Size Multiplier`. Arena trades are real Adrena trades, so the indexer picks them up automatically. No CPI needed. | Automatic -- no Arena code required |
+| **P&L Leaderboard** | Adrena's seasonal P&L leaderboard reads from on-chain position data. Arena agent wallets appear on this leaderboard like any other trader. Arena adds a *separate* competition leaderboard; both coexist. | Automatic -- agents appear on both leaderboards |
+| **Streaks** | Adrena's off-chain streak tracking counts consecutive profitable trades. Arena agents that close profitable positions trigger streak increments normally. | Automatic |
+| **Quests (existing)** | Quests like "Open 5 trades" or "Trade $10K volume" are triggered by on-chain activity. Arena agents contribute to these naturally. | Automatic |
+| **Raffles** | Raffle eligibility is often tied to trading volume or Mutagen thresholds. Arena agents' real volume qualifies them. | Automatic |
+| **Pool Fees** | Arena trades generate real trading fees for Adrena's liquidity pool. This is the primary value proposition -- 24/7 autonomous volume generation. | Automatic |
+
+#### Read-Only Integration (Arena reads Adrena data, cannot write)
+
+| System | How It Works | Limitation |
+|--------|-------------|-----------|
+| **UserProfile** | Adrena UserProfile PDA: `["user_profile", owner_wallet]`. Arena can read profile data (nickname, team affiliation, achievement count) and display it on agent cards in the frontend. | Arena cannot write to UserProfile -- it is owned by Adrena's program. Display only. |
+| **Divisions** | Adrena's 4-division structure is readable on-chain. Arena can display an agent's Adrena division alongside their Arena ELO tier. | Arena cannot modify division placement. |
+| **Teams (Bonk/Jito)** | Team affiliation is stored on UserProfile. Arena can display team badges and filter competitions by team. | Team assignment is managed by Adrena. |
+
+#### Requires Adrena Team Cooperation
+
+These features cannot be implemented unilaterally by the Arena. They require the Adrena team to take specific actions.
+
+| Feature | What's Needed | Why Arena Can't Do It Alone |
+|---------|--------------|---------------------------|
+| **Achievements** | `grantOrRemoveAchievement` is an **admin-only** instruction on Adrena's program. Arena-specific achievements (e.g., "First Arena Win", "10 Competitions", "ELO 1500+") require the Adrena team to call this instruction on behalf of qualifying agents. | Cannot CPI from the Arena program -- the instruction checks that the signer is Adrena's admin authority. |
+| **Arena-Specific Quests** | New quests like "Enter 3 Arena competitions" or "Win a Flash Duel" require Adrena's off-chain quest system to add Arena-specific criteria. | Quest definitions are managed in Adrena's off-chain infrastructure, not on-chain. |
+| **Mutagen Attribution** | While Arena trades generate Mutagen automatically, attributing Mutagen specifically to "Arena activity" (for Arena-specific Mutagen bonuses) may require Adrena's indexer to recognize Arena agent wallets. | The indexer is Adrena's off-chain service. Arena can provide a list of enrolled agent wallets per competition for the indexer to tag. |
+| **Custom Arena Tab on Adrena UI** | Displaying Arena competition data alongside Adrena's existing leaderboard requires frontend changes on `app.adrena.xyz`. | Adrena controls their frontend deployment. Arena provides a standalone dashboard + REST API that Adrena can integrate. |
+
+### 6.3 Integration Requirements Matrix
+
+| Feature | Integration Type | Arena Code | Adrena Action | Status |
+|---------|-----------------|------------|---------------|--------|
+| Open/close positions | Direct IX call | `AdrenaTrader` interface | None | Implemented |
+| Position monitoring | gRPC subscribe | `PositionSubscriber` trait, `AdrenaPosition` decoder | None | Implemented |
+| Position PDA reading | Account fetch | `getPosition()` | None | Implemented |
+| Mutagen accumulation | Automatic (off-chain indexer) | None needed | None | Works automatically |
+| P&L leaderboard presence | Automatic (on-chain data) | None needed | None | Works automatically |
+| Streak tracking | Automatic (off-chain) | None needed | None | Works automatically |
+| Quest completion (existing) | Automatic (on-chain activity) | None needed | None | Works automatically |
+| Raffle eligibility | Automatic (volume/Mutagen based) | None needed | None | Works automatically |
+| Fee generation for LPs | Automatic (real trades) | None needed | None | Works automatically |
+| UserProfile display | Read-only fetch | Frontend displays | None | Planned |
+| Division display | Read-only fetch | Frontend displays | None | Planned |
+| Arena achievements | Admin IX | Submit qualifying wallets | Call `grantOrRemoveAchievement` | Requires cooperation |
+| Arena-specific quests | Off-chain config | Provide quest criteria | Add to quest system | Requires cooperation |
+| Mutagen attribution | Off-chain indexer | Provide agent wallet lists | Tag in indexer | Requires cooperation |
+| Arena tab on Adrena UI | Frontend embed | Provide REST API + SSE | Embed in `app.adrena.xyz` | Requires cooperation |
+
+### 6.4 Keeper Infrastructure Alignment
+
+The orchestrator is intentionally built with the same technology stack as Adrena's existing keeper infrastructure (MrHerald, MrOracle, MrSablierStaking):
+
+| Component | Adrena Keepers | Arena Orchestrator |
+|-----------|---------------|-------------------|
+| Language | Rust | Rust |
+| RPC Streaming | Yellowstone gRPC | Yellowstone gRPC |
+| Database | PostgreSQL | PostgreSQL |
+| Web Framework | Axum | Axum |
+| Account Parsing | Borsh | Borsh |
+| Config | Env vars | Env vars (clap + env) |
+
+This alignment is deliberate -- it means the Adrena team can review, operate, and extend the Arena orchestrator using familiar patterns and tooling. No new runtime dependencies, no unfamiliar frameworks.
 
 ---
 
@@ -651,12 +782,15 @@ These features build on the existing architecture and represent the natural evol
 - **Automated season scheduling**: Recurring competitions created by cron-style orchestrator logic rather than manual authority calls
 - **Enhanced bracket tournaments**: Automated bracket progression, consolation brackets, and double-elimination formats
 - **Strategy marketplace**: Users publish and sell strategy configurations. Buyers use them with their own agents.
-- **Achievement system**: Integrate with Adrena's `grantOrRemoveAchievement` for on-chain badges (First Win, 10 Competition Veteran, ELO 1500+, etc.)
+- **Achievement system** *(requires Adrena cooperation)*: Arena tracks milestone events (First Win, 10 Competition Veteran, ELO 1500+) and submits qualifying wallet lists to the Adrena team, who calls `grantOrRemoveAchievement` -- this is admin-only on Adrena's program and cannot be CPI'd from Arena
+- **UserProfile display**: Read Adrena UserProfile PDAs (`["user_profile", owner_wallet]`) to show nicknames, team badges, and achievement counts on Arena agent cards -- read-only, no writes
 
 ### 9.2 Medium-Term (3-6 months)
 
-- **Team competitions**: Groups of agents compete as teams. Maps to Adrena's existing team framework (Bonk/Jito). Team ELO, shared prize pools.
+- **Team competitions**: Groups of agents compete as teams. Maps to Adrena's existing team framework (Bonk/Jito). Team ELO, shared prize pools. *(Team affiliation is read from Adrena UserProfile -- Arena cannot assign teams.)*
 - **Cross-asset competitions**: Agents compete across multiple Adrena custody assets (SOL, ETH, BTC) simultaneously. Multi-asset portfolio strategies.
+- **Arena-specific quests** *(requires Adrena cooperation)*: Custom quest criteria (e.g., "Enter 3 Arena competitions", "Win a Flash Duel") defined by Arena, added to Adrena's off-chain quest system by their team
+- **Mutagen attribution** *(requires Adrena cooperation)*: Arena provides enrolled agent wallet lists per competition; Adrena's off-chain indexer tags these for Arena-specific Mutagen bonuses or analytics
 - **On-chain governance**: Competition parameters (fee structures, scoring weights, format rules) governed by ADX token holders
 - **WASM strategy sandbox**: Custom strategies run in isolated WASM environments for security. Strategy code uploaded and executed server-side without trust assumptions.
 

@@ -66,6 +66,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
       .expect("Failed to run database migrations");
   }
 
+  // Position subscriber: WebSocket (real) or Mock based on config
+  if config.use_mock_subscriber {
+    tracing::info!("Using MockPositionSubscriber (set USE_MOCK_SUBSCRIBER=false for real WebSocket)");
+  } else {
+    tracing::info!(
+      ws_url = %config.ws_rpc_url,
+      program = %config.adrena_program_id,
+      "Starting WebSocket position subscriber"
+    );
+
+    let ws_subscriber = grpc::ws_subscriber::WebSocketPositionSubscriber::new(
+      config.ws_rpc_url.clone(),
+      config.adrena_program_id.clone(),
+    );
+
+    match grpc::subscriber::PositionSubscriber::subscribe(&ws_subscriber) {
+      Ok(mut rx) => {
+        tokio::spawn(async move {
+          while let Some(update) = rx.recv().await {
+            tracing::info!(
+              owner = %update.owner,
+              side = %update.side,
+              size_usd = update.size_usd,
+              pnl = update.unrealized_pnl,
+              "Position update received"
+            );
+          }
+          tracing::warn!("Position update channel closed");
+        });
+      }
+      Err(e) => {
+        tracing::error!(error = %e, "Failed to start position subscriber");
+      }
+    }
+  }
+
   let (live_tx, _) = broadcast::channel::<String>(256);
 
   let state = Arc::new(AppState {
