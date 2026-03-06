@@ -16,7 +16,7 @@ pub struct UpdateAgentStrategy<'info> {
   pub owner: Signer<'info>,
 }
 
-pub fn handler(ctx: Context<UpdateAgentStrategy>, new_strategy_hash: [u8; 32]) -> Result<()> {
+pub fn update_agent_strategy_handler(ctx: Context<UpdateAgentStrategy>, new_strategy_hash: [u8; 32]) -> Result<()> {
   ctx.accounts.agent.strategy_hash = new_strategy_hash;
   Ok(())
 }

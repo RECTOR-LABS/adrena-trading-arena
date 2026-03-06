@@ -37,7 +37,7 @@ pub struct SubmitScores<'info> {
   pub authority: Signer<'info>,
 }
 
-pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, SubmitScores<'info>>, scores: Vec<ScoreEntry>) -> Result<()> {
+pub fn submit_scores_handler<'info>(ctx: Context<'_, '_, 'info, 'info, SubmitScores<'info>>, scores: Vec<ScoreEntry>) -> Result<()> {
   let competition = &mut ctx.accounts.competition;
 
   require!(

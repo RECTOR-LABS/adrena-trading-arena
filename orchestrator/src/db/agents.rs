@@ -7,6 +7,7 @@ use crate::error::AppError;
 
 const AGENT_COLUMNS: &str = "id, mint, owner, name, strategy_hash, elo_rating, wins, losses, total_pnl, total_trades, status, created_at, updated_at";
 
+#[allow(dead_code)]
 const MAX_LIMIT: i64 = 1000;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,6 +48,7 @@ impl AgentRow {
 }
 
 /// Insert a new agent record. Returns the inserted row with generated ID and timestamps.
+#[allow(dead_code)]
 pub async fn insert_agent(pool: &Pool, agent: &AgentRow) -> Result<AgentRow, AppError> {
   let client = pool.get().await?;
   let row = client
@@ -87,6 +89,7 @@ pub async fn get_agent_by_mint(
 }
 
 /// Update an agent's ELO rating.
+#[allow(dead_code)]
 pub async fn update_agent_elo(
   pool: &Pool,
   mint: &str,
@@ -107,6 +110,7 @@ pub async fn update_agent_elo(
 }
 
 /// List agents with pagination, optionally filtering by status.
+#[allow(dead_code)]
 pub async fn list_agents(
   pool: &Pool,
   status: Option<&str>,

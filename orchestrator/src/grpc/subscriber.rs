@@ -2,6 +2,7 @@ use tokio::sync::mpsc;
 
 /// Position data received from the gRPC stream.
 /// All USD values are in micro-units (6 decimals) matching Adrena's on-chain representation.
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct PositionData {
   pub owner: String,

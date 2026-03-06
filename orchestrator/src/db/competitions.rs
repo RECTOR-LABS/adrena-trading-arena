@@ -51,6 +51,7 @@ impl CompetitionRow {
 }
 
 /// Insert a new competition. Returns the inserted row with generated ID.
+#[allow(dead_code)]
 pub async fn insert_competition(
   pool: &Pool,
   comp: &CompetitionRow,
@@ -133,6 +134,7 @@ pub async fn list_competitions(
 }
 
 /// Update a competition's status (e.g. Pending -> Active -> Settled).
+#[allow(dead_code)]
 pub async fn update_competition_status(
   pool: &Pool,
   id: &Uuid,

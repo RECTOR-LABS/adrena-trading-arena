@@ -5,8 +5,10 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 
+#[allow(dead_code)]
 const POSITION_COLUMNS: &str = "id, agent_mint, competition_id, custody, side, size_usd, collateral_usd, entry_price, mark_price, unrealized_pnl, leverage, snapshot_at";
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PositionSnapshotRow {
   pub id: Uuid,
@@ -24,6 +26,7 @@ pub struct PositionSnapshotRow {
 }
 
 impl PositionSnapshotRow {
+  #[allow(dead_code)]
   fn from_row(row: &tokio_postgres::Row) -> Result<Self, AppError> {
     Ok(Self {
       id: row.try_get("id").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
@@ -43,6 +46,7 @@ impl PositionSnapshotRow {
 }
 
 /// Insert a new position snapshot record.
+#[allow(dead_code)]
 pub async fn insert_position_snapshot(
   pool: &Pool,
   snap: &PositionSnapshotRow,
@@ -75,6 +79,7 @@ pub async fn insert_position_snapshot(
 
 /// Get the most recent position snapshots for an agent in a competition.
 /// Returns snapshots from the latest snapshot timestamp.
+#[allow(dead_code)]
 pub async fn get_latest_positions(
   pool: &Pool,
   agent_mint: &str,

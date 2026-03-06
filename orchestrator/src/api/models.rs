@@ -48,6 +48,7 @@ pub struct LeaderboardEntry {
   pub max_drawdown: f64,
 }
 
+#[allow(dead_code)]
 #[derive(Serialize)]
 pub struct LiveUpdate {
   pub agent_mint: String,

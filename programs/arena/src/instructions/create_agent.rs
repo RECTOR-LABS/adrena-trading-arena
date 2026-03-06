@@ -41,7 +41,7 @@ pub struct CreateAgent<'info> {
   pub mpl_core_program: UncheckedAccount<'info>,
 }
 
-pub fn handler(
+pub fn create_agent_handler(
   ctx: Context<CreateAgent>,
   name: String,
   uri: String,

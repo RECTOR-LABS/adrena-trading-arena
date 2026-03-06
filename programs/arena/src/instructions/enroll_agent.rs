@@ -59,7 +59,7 @@ pub struct EnrollAgent<'info> {
   pub system_program: Program<'info, System>,
 }
 
-pub fn handler(ctx: Context<EnrollAgent>) -> Result<()> {
+pub fn enroll_agent_handler(ctx: Context<EnrollAgent>) -> Result<()> {
   let competition = &ctx.accounts.competition;
   let entry_fee = competition.entry_fee;
 

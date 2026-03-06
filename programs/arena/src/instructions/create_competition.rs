@@ -55,7 +55,7 @@ pub struct CreateCompetition<'info> {
   pub system_program: Program<'info, System>,
 }
 
-pub fn handler(ctx: Context<CreateCompetition>, args: CreateCompetitionArgs) -> Result<()> {
+pub fn create_competition_handler(ctx: Context<CreateCompetition>, args: CreateCompetitionArgs) -> Result<()> {
   require!(args.name.len() <= MAX_NAME_LEN, ArenaError::NameTooLong);
   require!(args.end_time > args.start_time, ArenaError::InvalidTimeRange);
 
