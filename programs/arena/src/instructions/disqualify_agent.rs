@@ -1,7 +1,8 @@
 use anchor_lang::prelude::*;
 use crate::constants::*;
 use crate::error::ArenaError;
-use crate::state::{Agent, Arena, Competition, Enrollment, EnrollmentStatus};
+use crate::events::*;
+use crate::state::{Agent, Arena, Competition, CompetitionStatus, Enrollment, EnrollmentStatus};
 
 #[derive(Accounts)]
 pub struct DisqualifyAgent<'info> {
@@ -16,6 +17,9 @@ pub struct DisqualifyAgent<'info> {
     mut,
     seeds = [COMPETITION_SEED, competition.arena.as_ref(), &competition.id.to_le_bytes()],
     bump = competition.bump,
+    constraint = competition.status == CompetitionStatus::Registration
+      || competition.status == CompetitionStatus::Active
+      @ ArenaError::InvalidCompetitionStatus,
   )]
   pub competition: Account<'info, Competition>,
 
@@ -23,7 +27,7 @@ pub struct DisqualifyAgent<'info> {
     mut,
     seeds = [ENROLLMENT_SEED, competition.key().as_ref(), agent.key().as_ref()],
     bump = enrollment.bump,
-    constraint = enrollment.status == EnrollmentStatus::Enrolled @ ArenaError::InvalidCompetitionStatus,
+    constraint = enrollment.status == EnrollmentStatus::Enrolled @ ArenaError::InvalidEnrollmentStatus,
   )]
   pub enrollment: Account<'info, Enrollment>,
 
@@ -38,6 +42,17 @@ pub struct DisqualifyAgent<'info> {
 
 pub fn handler(ctx: Context<DisqualifyAgent>) -> Result<()> {
   ctx.accounts.enrollment.status = EnrollmentStatus::Disqualified;
-  ctx.accounts.competition.registered_count -= 1;
+  ctx.accounts.competition.registered_count = ctx
+    .accounts
+    .competition
+    .registered_count
+    .checked_sub(1)
+    .ok_or(ArenaError::Overflow)?;
+
+  emit!(AgentDisqualified {
+    agent: ctx.accounts.agent.key(),
+    competition: ctx.accounts.competition.key(),
+  });
+
   Ok(())
 }

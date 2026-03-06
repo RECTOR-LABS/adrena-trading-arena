@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface, transfer_checked, TransferChecked};
 use crate::constants::*;
 use crate::error::ArenaError;
+use crate::events::*;
 use crate::state::{Agent, AgentStatus, Competition, CompetitionStatus, Enrollment, EnrollmentStatus};
 
 #[derive(Accounts)]
@@ -46,6 +47,9 @@ pub struct EnrollAgent<'info> {
   )]
   pub owner_token_account: InterfaceAccount<'info, TokenAccount>,
 
+  #[account(
+    constraint = prize_mint.key() == competition.prize_mint @ ArenaError::InvalidPrizeMint,
+  )]
   pub prize_mint: InterfaceAccount<'info, Mint>,
 
   #[account(mut)]
@@ -57,9 +61,10 @@ pub struct EnrollAgent<'info> {
 
 pub fn handler(ctx: Context<EnrollAgent>) -> Result<()> {
   let competition = &ctx.accounts.competition;
+  let entry_fee = competition.entry_fee;
 
   // Transfer entry fee if > 0
-  if competition.entry_fee > 0 {
+  if entry_fee > 0 {
     let transfer_accounts = TransferChecked {
       from: ctx.accounts.owner_token_account.to_account_info(),
       mint: ctx.accounts.prize_mint.to_account_info(),
@@ -68,7 +73,7 @@ pub fn handler(ctx: Context<EnrollAgent>) -> Result<()> {
     };
     transfer_checked(
       CpiContext::new(ctx.accounts.token_program.to_account_info(), transfer_accounts),
-      competition.entry_fee,
+      entry_fee,
       ctx.accounts.prize_mint.decimals,
     )?;
   }
@@ -86,8 +91,13 @@ pub fn handler(ctx: Context<EnrollAgent>) -> Result<()> {
 
   // Update competition state
   let competition = &mut ctx.accounts.competition;
-  competition.registered_count += 1;
-  competition.prize_pool += competition.entry_fee;
+  competition.registered_count = competition.registered_count.checked_add(1).ok_or(ArenaError::Overflow)?;
+  competition.prize_pool = competition.prize_pool.checked_add(entry_fee).ok_or(ArenaError::Overflow)?;
+
+  emit!(AgentEnrolled {
+    agent: ctx.accounts.agent.key(),
+    competition: ctx.accounts.competition.key(),
+  });
 
   Ok(())
 }

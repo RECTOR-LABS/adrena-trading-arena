@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 use crate::constants::*;
+use crate::error::ArenaError;
 use crate::state::Arena;
 
 #[derive(Accounts)]
@@ -20,6 +21,8 @@ pub struct InitializeArena<'info> {
 }
 
 pub fn handler(ctx: Context<InitializeArena>, protocol_fee_bps: u16) -> Result<()> {
+  require!(protocol_fee_bps <= 10_000, ArenaError::InvalidFee);
+
   let arena = &mut ctx.accounts.arena;
   arena.authority = ctx.accounts.authority.key();
   arena.agent_count = 0;

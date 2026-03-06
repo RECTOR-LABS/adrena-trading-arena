@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use crate::constants::*;
 use crate::error::ArenaError;
+use crate::events::*;
 use crate::state::{Arena, Competition, CompetitionStatus};
 
 #[derive(Accounts)]
@@ -25,6 +26,14 @@ pub struct StartCompetition<'info> {
 }
 
 pub fn handler(ctx: Context<StartCompetition>) -> Result<()> {
+  let now = Clock::get()?.unix_timestamp;
+  require!(now >= ctx.accounts.competition.start_time, ArenaError::StartTimeInPast);
+
   ctx.accounts.competition.status = CompetitionStatus::Active;
+
+  emit!(CompetitionStarted {
+    competition: ctx.accounts.competition.key(),
+  });
+
   Ok(())
 }

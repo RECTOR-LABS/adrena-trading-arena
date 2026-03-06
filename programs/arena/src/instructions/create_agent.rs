@@ -4,6 +4,8 @@ use mpl_core::{
   ID as MPL_CORE_ID,
 };
 use crate::constants::*;
+use crate::error::ArenaError;
+use crate::events::*;
 use crate::state::{Arena, Agent, AgentStatus};
 
 #[derive(Accounts)]
@@ -45,6 +47,9 @@ pub fn handler(
   uri: String,
   strategy_hash: [u8; 32],
 ) -> Result<()> {
+  require!(name.len() <= MAX_NAME_LEN, ArenaError::NameTooLong);
+  require!(uri.len() <= MAX_URI_LEN, ArenaError::UriTooLong);
+
   // Mint Core NFT via CPI
   CreateV2CpiBuilder::new(&ctx.accounts.mpl_core_program.to_account_info())
     .asset(&ctx.accounts.asset.to_account_info())
@@ -71,7 +76,13 @@ pub fn handler(
 
   // Increment arena counter
   let arena = &mut ctx.accounts.arena;
-  arena.agent_count += 1;
+  arena.agent_count = arena.agent_count.checked_add(1).ok_or(ArenaError::Overflow)?;
+
+  emit!(AgentCreated {
+    agent: ctx.accounts.agent.key(),
+    owner: ctx.accounts.owner.key(),
+    mint: ctx.accounts.asset.key(),
+  });
 
   Ok(())
 }
