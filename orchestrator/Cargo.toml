@@ -1,0 +1,39 @@
+[package]
+name = "arena-orchestrator"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Web framework
+axum = { version = "0.7", features = ["macros"] }
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+
+# Database
+deadpool-postgres = "0.14"
+tokio-postgres = { version = "0.7", features = ["with-chrono-0_4", "with-serde_json-1", "with-uuid-1"] }
+refinery = { version = "0.8", features = ["tokio-postgres"] }
+
+# Solana
+solana-sdk = "2.1"
+borsh = "0.10"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Streaming
+tokio-stream = { version = "0.1", features = ["sync"] }
+
+# HTTP types (for CORS configuration)
+http = "1"
+
+# Utilities
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive", "env"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+thiserror = "1"
+uuid = { version = "1", features = ["v4", "serde"] }

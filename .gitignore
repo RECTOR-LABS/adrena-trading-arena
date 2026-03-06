@@ -23,6 +23,10 @@ dist/
 # Solana
 test-ledger/
 *.so
+!tests/fixtures/*.so
+*.pem
+*-keypair.json
+.env.production
 
 # Logs
 *.log
