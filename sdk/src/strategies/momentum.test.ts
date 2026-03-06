@@ -8,8 +8,8 @@ function makeMarket(prices: number[]): MarketState {
     price: prices[prices.length - 1],
     prices,
     volumes: prices.map(() => 1000),
-    high24h: Math.max(...prices),
-    low24h: Math.min(...prices),
+    highRecent: Math.max(...prices),
+    lowRecent: Math.min(...prices),
     volume24h: 100_000,
     timestamp: Date.now(),
   };
@@ -28,17 +28,29 @@ describe('MomentumStrategy', () => {
   });
 
   it('returns LONG on bullish crossover', () => {
-    // Prices trending up -- fast EMA will cross above slow
-    const prices = [90, 91, 92, 88, 87, 86, 87, 90, 95, 100, 105, 110];
+    // Declining series so fast EMA < slow EMA, then a sharp uptick on the last bar
+    // causes fast EMA to cross above slow EMA
+    const prices = [
+      100, 100, 100, 100, 100,
+      98, 96, 94, 92, 90,
+      88, 86, 84, 82, 80,
+      78, 76, 120,
+    ];
     const signal = strategy.evaluate(makeMarket(prices));
-    // Strong uptrend should give LONG or HOLD (depends on exact crossover point)
-    expect(['LONG', 'HOLD']).toContain(signal);
+    expect(signal).toBe('LONG');
   });
 
   it('returns SHORT on bearish crossover', () => {
-    const prices = [110, 109, 108, 112, 113, 114, 113, 110, 105, 100, 95, 90];
+    // Rising series so fast EMA > slow EMA, then a sharp drop on the last bar
+    // causes fast EMA to cross below slow EMA
+    const prices = [
+      100, 100, 100, 100, 100,
+      102, 104, 106, 108, 110,
+      112, 114, 116, 118, 120,
+      122, 124, 40,
+    ];
     const signal = strategy.evaluate(makeMarket(prices));
-    expect(['SHORT', 'HOLD']).toContain(signal);
+    expect(signal).toBe('SHORT');
   });
 
   it('returns HOLD when no crossover', () => {

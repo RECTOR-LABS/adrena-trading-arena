@@ -17,6 +17,7 @@ export function findAgentPda(mint: PublicKey, programId: PublicKey): [PublicKey,
 
 export function findCompetitionPda(arena: PublicKey, id: number | BN, programId: PublicKey): [PublicKey, number] {
   const idBn = BN.isBN(id) ? id : new BN(id);
+  if (idBn.isNeg()) throw new Error('Competition ID must be non-negative');
   return PublicKey.findProgramAddressSync(
     [COMPETITION_SEED, arena.toBuffer(), idBn.toArrayLike(Buffer, 'le', 8)],
     programId

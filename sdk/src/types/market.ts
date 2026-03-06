@@ -12,8 +12,8 @@ export interface MarketState {
   price: number;
   prices: number[];       // historical close prices (newest last)
   volumes: number[];      // historical volumes (newest last)
-  high24h: number;
-  low24h: number;
+  highRecent: number;
+  lowRecent: number;
   volume24h: number;
   timestamp: number;
 }

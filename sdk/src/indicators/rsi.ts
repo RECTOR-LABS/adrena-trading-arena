@@ -1,5 +1,6 @@
 /** Relative Strength Index */
 export function rsi(data: number[], period: number = 14): number | null {
+  if (data.length === 0 || data.some(v => !Number.isFinite(v))) return null;
   if (data.length < period + 1) return null;
 
   let avgGain = 0;

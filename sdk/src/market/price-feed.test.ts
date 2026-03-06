@@ -67,8 +67,8 @@ describe('MockPriceFeed', () => {
       expect(state.prices).toHaveLength(10);
       expect(state.prices.every((p) => p === 150)).toBe(true);
       expect(state.volumes).toHaveLength(10);
-      expect(state.high24h).toBe(150);
-      expect(state.low24h).toBe(150);
+      expect(state.highRecent).toBe(150);
+      expect(state.lowRecent).toBe(150);
       expect(state.timestamp).toBeGreaterThan(0);
     });
 
@@ -87,7 +87,7 @@ describe('MockPriceFeed', () => {
       expect(state.symbol).toBe('SOL/USD');
       expect(state.price).toBe(115); // next in sequence
       expect(state.prices.length).toBeGreaterThan(0);
-      expect(state.high24h).toBeGreaterThanOrEqual(state.low24h);
+      expect(state.highRecent).toBeGreaterThanOrEqual(state.lowRecent);
     });
 
     it('has matching volumes array length', async () => {
@@ -98,7 +98,7 @@ describe('MockPriceFeed', () => {
       expect(state.prices.length).toBe(state.volumes.length);
     });
 
-    it('computes correct high24h and low24h', async () => {
+    it('computes correct highRecent and lowRecent', async () => {
       const feed = new MockPriceFeed();
       feed.setPriceSequence('SOL/USD', [90, 100, 110, 105, 95]);
 
@@ -109,7 +109,7 @@ describe('MockPriceFeed', () => {
       await feed.getPrice('SOL/USD');
 
       const state = await feed.getMarketState('SOL/USD', 10);
-      expect(state.high24h).toBeGreaterThanOrEqual(state.low24h);
+      expect(state.highRecent).toBeGreaterThanOrEqual(state.lowRecent);
     });
   });
 });

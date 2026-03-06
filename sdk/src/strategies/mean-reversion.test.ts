@@ -9,8 +9,8 @@ function makeMarket(prices: number[], currentPrice?: number): MarketState {
     price: p,
     prices,
     volumes: prices.map(() => 1000),
-    high24h: Math.max(...prices),
-    low24h: Math.min(...prices),
+    highRecent: Math.max(...prices),
+    lowRecent: Math.min(...prices),
     volume24h: 100_000,
     timestamp: Date.now(),
   };

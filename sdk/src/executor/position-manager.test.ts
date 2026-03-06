@@ -14,6 +14,7 @@ function makeRiskParams(overrides: Partial<RiskParams> = {}): RiskParams {
     maxPositionPct: 20,
     stopLossPct: 5,
     takeProfitPct: 10,
+    defaultSlippageBps: 50,
     ...overrides,
   };
 }
@@ -24,8 +25,8 @@ function makeMarket(price: number, prices?: number[]): MarketState {
     price,
     prices: prices ?? [price],
     volumes: [1000],
-    high24h: price * 1.05,
-    low24h: price * 0.95,
+    highRecent: price * 1.05,
+    lowRecent: price * 0.95,
     volume24h: 100_000,
     timestamp: Date.now(),
   };
@@ -135,22 +136,18 @@ describe('PositionManager', () => {
   describe('calcPositionSize', () => {
     it('respects maxPositionPct', () => {
       // Capital 10,000, maxPositionPct 20% → max 2,000
-      const size = pm.calcPositionSize(100);
+      const size = pm.calcPositionSize();
       expect(size).toBe(2000);
     });
 
     it('returns 0 for zero capital', () => {
       const zeroPm = new PositionManager(trader, makeRiskParams(), 0);
-      expect(zeroPm.calcPositionSize(100)).toBe(0);
-    });
-
-    it('returns 0 for zero price', () => {
-      expect(pm.calcPositionSize(0)).toBe(0);
+      expect(zeroPm.calcPositionSize()).toBe(0);
     });
 
     it('scales with different maxPositionPct', () => {
       const pm10 = new PositionManager(trader, makeRiskParams({ maxPositionPct: 10 }), 10_000);
-      expect(pm10.calcPositionSize(100)).toBe(1000);
+      expect(pm10.calcPositionSize()).toBe(1000);
     });
   });
 
