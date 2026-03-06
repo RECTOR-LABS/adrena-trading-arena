@@ -20,7 +20,7 @@ pub struct InitializeArena<'info> {
   pub system_program: Program<'info, System>,
 }
 
-pub fn handler(ctx: Context<InitializeArena>, protocol_fee_bps: u16) -> Result<()> {
+pub fn initialize_arena_handler(ctx: Context<InitializeArena>, protocol_fee_bps: u16) -> Result<()> {
   require!(protocol_fee_bps <= 10_000, ArenaError::InvalidFee);
 
   let arena = &mut ctx.accounts.arena;

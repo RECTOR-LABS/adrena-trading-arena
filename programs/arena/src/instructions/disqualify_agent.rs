@@ -40,7 +40,7 @@ pub struct DisqualifyAgent<'info> {
   pub authority: Signer<'info>,
 }
 
-pub fn handler(ctx: Context<DisqualifyAgent>) -> Result<()> {
+pub fn disqualify_agent_handler(ctx: Context<DisqualifyAgent>) -> Result<()> {
   ctx.accounts.enrollment.status = EnrollmentStatus::Disqualified;
   ctx.accounts.competition.registered_count = ctx
     .accounts

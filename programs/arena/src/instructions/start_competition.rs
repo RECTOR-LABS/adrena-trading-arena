@@ -25,7 +25,7 @@ pub struct StartCompetition<'info> {
   pub authority: Signer<'info>,
 }
 
-pub fn handler(ctx: Context<StartCompetition>) -> Result<()> {
+pub fn start_competition_handler(ctx: Context<StartCompetition>) -> Result<()> {
   let now = Clock::get()?.unix_timestamp;
   require!(now >= ctx.accounts.competition.start_time, ArenaError::StartTimeInPast);
 

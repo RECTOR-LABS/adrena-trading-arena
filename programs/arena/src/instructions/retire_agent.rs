@@ -16,7 +16,7 @@ pub struct RetireAgent<'info> {
   pub owner: Signer<'info>,
 }
 
-pub fn handler(ctx: Context<RetireAgent>) -> Result<()> {
+pub fn retire_agent_handler(ctx: Context<RetireAgent>) -> Result<()> {
   require!(
     ctx.accounts.agent.status == AgentStatus::Active,
     ArenaError::AgentNotActive

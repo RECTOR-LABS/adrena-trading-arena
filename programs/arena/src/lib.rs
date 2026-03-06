@@ -15,7 +15,7 @@ pub mod arena {
   use super::*;
 
   pub fn initialize_arena(ctx: Context<InitializeArena>, protocol_fee_bps: u16) -> Result<()> {
-    instructions::initialize_arena::handler(ctx, protocol_fee_bps)
+    instructions::initialize_arena::initialize_arena_handler(ctx, protocol_fee_bps)
   }
 
   pub fn create_agent(
@@ -24,45 +24,45 @@ pub mod arena {
     uri: String,
     strategy_hash: [u8; 32],
   ) -> Result<()> {
-    instructions::create_agent::handler(ctx, name, uri, strategy_hash)
+    instructions::create_agent::create_agent_handler(ctx, name, uri, strategy_hash)
   }
 
   pub fn update_agent_strategy(
     ctx: Context<UpdateAgentStrategy>,
     new_strategy_hash: [u8; 32],
   ) -> Result<()> {
-    instructions::update_agent_strategy::handler(ctx, new_strategy_hash)
+    instructions::update_agent_strategy::update_agent_strategy_handler(ctx, new_strategy_hash)
   }
 
   pub fn retire_agent(ctx: Context<RetireAgent>) -> Result<()> {
-    instructions::retire_agent::handler(ctx)
+    instructions::retire_agent::retire_agent_handler(ctx)
   }
 
   pub fn create_competition(ctx: Context<CreateCompetition>, args: CreateCompetitionArgs) -> Result<()> {
-    instructions::create_competition::handler(ctx, args)
+    instructions::create_competition::create_competition_handler(ctx, args)
   }
 
   pub fn enroll_agent(ctx: Context<EnrollAgent>) -> Result<()> {
-    instructions::enroll_agent::handler(ctx)
+    instructions::enroll_agent::enroll_agent_handler(ctx)
   }
 
   pub fn start_competition(ctx: Context<StartCompetition>) -> Result<()> {
-    instructions::start_competition::handler(ctx)
+    instructions::start_competition::start_competition_handler(ctx)
   }
 
   pub fn submit_scores<'info>(ctx: Context<'_, '_, 'info, 'info, SubmitScores<'info>>, scores: Vec<ScoreEntry>) -> Result<()> {
-    instructions::submit_scores::handler(ctx, scores)
+    instructions::submit_scores::submit_scores_handler(ctx, scores)
   }
 
   pub fn settle_competition(ctx: Context<SettleCompetition>) -> Result<()> {
-    instructions::settle_competition::handler(ctx)
+    instructions::settle_competition::settle_competition_handler(ctx)
   }
 
   pub fn claim_prize(ctx: Context<ClaimPrize>) -> Result<()> {
-    instructions::claim_prize::handler(ctx)
+    instructions::claim_prize::claim_prize_handler(ctx)
   }
 
   pub fn disqualify_agent(ctx: Context<DisqualifyAgent>) -> Result<()> {
-    instructions::disqualify_agent::handler(ctx)
+    instructions::disqualify_agent::disqualify_agent_handler(ctx)
   }
 }

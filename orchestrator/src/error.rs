@@ -12,6 +12,7 @@ pub enum AppError {
   Config(String),
 
   #[error("Solana error: {0}")]
+  #[allow(dead_code)]
   Solana(String),
 
   #[error("Not found: {0}")]

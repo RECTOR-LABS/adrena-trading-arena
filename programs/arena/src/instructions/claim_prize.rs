@@ -53,7 +53,7 @@ pub struct ClaimPrize<'info> {
   pub token_program: Interface<'info, TokenInterface>,
 }
 
-pub fn handler(ctx: Context<ClaimPrize>) -> Result<()> {
+pub fn claim_prize_handler(ctx: Context<ClaimPrize>) -> Result<()> {
   let competition = &ctx.accounts.competition;
   let enrollment = &ctx.accounts.enrollment;
   let prize_amount = enrollment.prize_amount;

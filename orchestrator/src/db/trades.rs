@@ -5,10 +5,13 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 
+#[allow(dead_code)]
 const TRADE_COLUMNS: &str = "id, agent_mint, competition_id, side, action, size_usd, price, realized_pnl, tx_signature, traded_at";
 
+#[allow(dead_code)]
 const MAX_LIMIT: i64 = 1000;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TradeRow {
   pub id: Uuid,
@@ -24,6 +27,7 @@ pub struct TradeRow {
 }
 
 impl TradeRow {
+  #[allow(dead_code)]
   fn from_row(row: &tokio_postgres::Row) -> Result<Self, AppError> {
     Ok(Self {
       id: row.try_get("id").map_err(|e| AppError::Internal(format!("DB field error: {e}")))?,
@@ -41,6 +45,7 @@ impl TradeRow {
 }
 
 /// Insert a new trade record.
+#[allow(dead_code)]
 pub async fn insert_trade(pool: &Pool, trade: &TradeRow) -> Result<(), AppError> {
   let client = pool.get().await?;
   client
@@ -67,6 +72,7 @@ pub async fn insert_trade(pool: &Pool, trade: &TradeRow) -> Result<(), AppError>
 }
 
 /// Get trades for an agent in a specific competition with pagination.
+#[allow(dead_code)]
 pub async fn get_trades(
   pool: &Pool,
   agent_mint: &str,
@@ -92,6 +98,7 @@ pub async fn get_trades(
 }
 
 /// Count total trades for an agent in a specific competition.
+#[allow(dead_code)]
 pub async fn count_trades(
   pool: &Pool,
   agent_mint: &str,
