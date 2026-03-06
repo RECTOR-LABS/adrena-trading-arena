@@ -1,6 +1,8 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token_interface::TokenAccount;
 use crate::constants::*;
 use crate::error::ArenaError;
+use crate::events::*;
 use crate::state::{Arena, Competition, CompetitionStatus, Enrollment, EnrollmentStatus};
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
@@ -26,6 +28,12 @@ pub struct SubmitScores<'info> {
   )]
   pub competition: Account<'info, Competition>,
 
+  #[account(
+    seeds = [PRIZE_VAULT_SEED, competition.key().as_ref()],
+    bump,
+  )]
+  pub prize_vault: InterfaceAccount<'info, TokenAccount>,
+
   pub authority: Signer<'info>,
 }
 
@@ -49,6 +57,15 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, SubmitScores<'info>>, s
     ArenaError::BatchTooLarge
   );
 
+  // CE-02: Validate remaining_accounts — no duplicates, all writable
+  let mut seen_keys = std::collections::BTreeSet::new();
+  for acc in ctx.remaining_accounts.iter() {
+    require!(acc.is_writable, ArenaError::AccountNotWritable);
+    require!(seen_keys.insert(acc.key()), ArenaError::DuplicateAccount);
+  }
+
+  let score_count = scores.len() as u32;
+
   for (i, score) in scores.iter().enumerate() {
     let enrollment_info = &ctx.remaining_accounts[i];
     let mut enrollment: Account<Enrollment> = Account::try_from(enrollment_info)?;
@@ -67,8 +84,25 @@ pub fn handler<'info>(ctx: Context<'_, '_, 'info, 'info, SubmitScores<'info>>, s
     enrollment.prize_amount = score.prize_amount;
     enrollment.status = EnrollmentStatus::Scored;
 
+    // CE-01: Accumulate total prizes allocated
+    competition.total_prizes_allocated = competition
+      .total_prizes_allocated
+      .checked_add(score.prize_amount)
+      .ok_or(ArenaError::Overflow)?;
+
     enrollment.exit(&crate::ID)?;
   }
+
+  // CE-01: Ensure total allocated prizes don't exceed vault balance
+  require!(
+    competition.total_prizes_allocated <= ctx.accounts.prize_vault.amount,
+    ArenaError::InsufficientPrizeVault
+  );
+
+  emit!(ScoresSubmitted {
+    competition: ctx.accounts.competition.key(),
+    count: score_count,
+  });
 
   Ok(())
 }

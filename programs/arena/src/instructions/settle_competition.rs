@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use crate::constants::*;
 use crate::error::ArenaError;
+use crate::events::*;
 use crate::state::{Arena, Competition, CompetitionStatus};
 
 #[derive(Accounts)]
@@ -25,5 +26,10 @@ pub struct SettleCompetition<'info> {
 
 pub fn handler(ctx: Context<SettleCompetition>) -> Result<()> {
   ctx.accounts.competition.status = CompetitionStatus::Settled;
+
+  emit!(CompetitionSettled {
+    competition: ctx.accounts.competition.key(),
+  });
+
   Ok(())
 }

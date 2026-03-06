@@ -36,6 +36,7 @@ pub struct Competition {
   pub status: CompetitionStatus,
   pub entry_fee: u64,
   pub prize_pool: u64,
+  pub total_prizes_allocated: u64,
   pub max_agents: u32,
   pub registered_count: u32,
   pub start_time: i64,

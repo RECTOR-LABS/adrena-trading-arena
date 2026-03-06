@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface, transfer_checked, TransferChecked};
 use crate::constants::*;
 use crate::error::ArenaError;
+use crate::events::*;
 use crate::state::{Agent, Competition, CompetitionStatus, Enrollment, EnrollmentStatus};
 
 #[derive(Accounts)]
@@ -26,6 +27,7 @@ pub struct ClaimPrize<'info> {
     bump = enrollment.bump,
     constraint = enrollment.status == EnrollmentStatus::Scored @ ArenaError::NotScored,
     constraint = enrollment.prize_amount > 0 @ ArenaError::ZeroPrize,
+    close = owner,
   )]
   pub enrollment: Account<'info, Enrollment>,
 
@@ -54,6 +56,15 @@ pub struct ClaimPrize<'info> {
 pub fn handler(ctx: Context<ClaimPrize>) -> Result<()> {
   let competition = &ctx.accounts.competition;
   let enrollment = &ctx.accounts.enrollment;
+  let prize_amount = enrollment.prize_amount;
+  let agent_key = enrollment.agent;
+
+  // CE-03: Vault balance pre-check
+  ctx.accounts.prize_vault.reload()?;
+  require!(
+    ctx.accounts.prize_vault.amount >= prize_amount,
+    ArenaError::InsufficientPrizeVault
+  );
 
   // Build signer seeds for the competition PDA (vault authority)
   let competition_id_bytes = competition.id.to_le_bytes();
@@ -77,12 +88,18 @@ pub fn handler(ctx: Context<ClaimPrize>) -> Result<()> {
       transfer_accounts,
       signer_seeds,
     ),
-    enrollment.prize_amount,
+    prize_amount,
     ctx.accounts.prize_mint.decimals,
   )?;
 
-  // Mark as claimed
+  // Mark as claimed (account will be closed via `close = owner` constraint)
   ctx.accounts.enrollment.status = EnrollmentStatus::Claimed;
+
+  emit!(PrizeClaimed {
+    enrollment: ctx.accounts.enrollment.key(),
+    agent: agent_key,
+    amount: prize_amount,
+  });
 
   Ok(())
 }

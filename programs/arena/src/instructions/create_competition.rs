@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use crate::constants::*;
 use crate::error::ArenaError;
+use crate::events::*;
 use crate::state::{Arena, Competition, CompetitionFormat, CompetitionStatus, ScoringParams};
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -58,18 +59,27 @@ pub fn handler(ctx: Context<CreateCompetition>, args: CreateCompetitionArgs) -> 
   require!(args.name.len() <= MAX_NAME_LEN, ArenaError::NameTooLong);
   require!(args.end_time > args.start_time, ArenaError::InvalidTimeRange);
 
+  let now = Clock::get()?.unix_timestamp;
+  require!(args.start_time > now, ArenaError::StartTimeInPast);
+
+  require!(
+    args.max_agents >= 2 && args.max_agents <= MAX_AGENTS_PER_COMPETITION,
+    ArenaError::InvalidMaxAgents
+  );
+
   let arena = &mut ctx.accounts.arena;
   let id = arena.competition_count;
 
   let competition = &mut ctx.accounts.competition;
   competition.id = id;
-  competition.name = args.name;
+  competition.name = args.name.clone();
   competition.arena = arena.key();
   competition.authority = ctx.accounts.authority.key();
   competition.format = args.format;
   competition.status = CompetitionStatus::Registration;
   competition.entry_fee = args.entry_fee;
   competition.prize_pool = 0;
+  competition.total_prizes_allocated = 0;
   competition.max_agents = args.max_agents;
   competition.registered_count = 0;
   competition.start_time = args.start_time;
@@ -79,7 +89,13 @@ pub fn handler(ctx: Context<CreateCompetition>, args: CreateCompetitionArgs) -> 
   competition.prize_vault = ctx.accounts.prize_vault.key();
   competition.bump = ctx.bumps.competition;
 
-  arena.competition_count += 1;
+  arena.competition_count = arena.competition_count.checked_add(1).ok_or(ArenaError::Overflow)?;
+
+  emit!(CompetitionCreated {
+    competition: ctx.accounts.competition.key(),
+    id,
+    name: args.name,
+  });
 
   Ok(())
 }

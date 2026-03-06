@@ -40,4 +40,20 @@ pub enum ArenaError {
   ZeroPrize,
   #[msg("Insufficient funds in prize vault")]
   InsufficientPrizeVault,
+  #[msg("Remaining account must be writable")]
+  AccountNotWritable,
+  #[msg("Duplicate account in remaining accounts")]
+  DuplicateAccount,
+  #[msg("Protocol fee basis points must not exceed 10000")]
+  InvalidFee,
+  #[msg("Arithmetic overflow")]
+  Overflow,
+  #[msg("Prize mint does not match competition prize mint")]
+  InvalidPrizeMint,
+  #[msg("URI exceeds maximum length")]
+  UriTooLong,
+  #[msg("max_agents must be between 2 and MAX_AGENTS_PER_COMPETITION")]
+  InvalidMaxAgents,
+  #[msg("Enrollment is not in the expected status for this operation")]
+  InvalidEnrollmentStatus,
 }
