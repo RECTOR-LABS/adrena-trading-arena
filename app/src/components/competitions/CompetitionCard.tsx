@@ -3,14 +3,7 @@
 import Link from 'next/link';
 import type { Competition } from '@/types';
 import { formatUsd, cn } from '@/lib/utils';
-
-const statusColors: Record<string, string> = {
-  Pending: 'bg-arena-muted/20 text-arena-muted',
-  Registration: 'bg-arena-blue/20 text-blue-400',
-  Active: 'bg-arena-success/20 text-arena-success',
-  Scoring: 'bg-arena-warning/20 text-arena-warning',
-  Settled: 'bg-arena-muted/20 text-arena-muted',
-};
+import { competitionStatusColors } from '@/lib/status-colors';
 
 export function CompetitionCard({ competition }: { competition: Competition }) {
   return (
@@ -23,7 +16,7 @@ export function CompetitionCard({ competition }: { competition: Competition }) {
           <span
             className={cn(
               'px-2 py-1 rounded text-xs font-medium shrink-0 ml-2',
-              statusColors[competition.status] ?? statusColors.Pending
+              competitionStatusColors[competition.status] ?? competitionStatusColors.Pending
             )}
           >
             {competition.status}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { WalletButton } from '@/components/wallet/WalletButton';
@@ -33,23 +34,6 @@ export default function CreateAgentPage() {
   const { connected } = useWallet();
   const [name, setName] = useState('');
   const [strategy, setStrategy] = useState('momentum');
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim() || !connected) return;
-
-    setSubmitting(true);
-    try {
-      // In production this would call the on-chain create_agent instruction
-      // For now, simulate a brief delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setSubmitted(true);
-    } finally {
-      setSubmitting(false);
-    }
-  }
 
   if (!connected) {
     return (
@@ -67,31 +51,6 @@ export default function CreateAgentPage() {
     );
   }
 
-  if (submitted) {
-    return (
-      <PageContainer>
-        <div className="max-w-lg mx-auto text-center py-20">
-          <div className="w-16 h-16 bg-arena-success/20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg className="w-8 h-8 text-arena-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <h1 className="text-3xl font-bold mb-4">Agent Created</h1>
-          <p className="text-arena-muted mb-6">
-            <span className="text-arena-text font-medium">{name}</span> is ready to compete.
-            Enroll it in a competition to begin trading.
-          </p>
-          <a
-            href="/competitions"
-            className="inline-block bg-arena-accent hover:bg-arena-accent/80 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-          >
-            Browse Competitions
-          </a>
-        </div>
-      </PageContainer>
-    );
-  }
-
   return (
     <PageContainer>
       <div className="max-w-lg mx-auto">
@@ -100,63 +59,74 @@ export default function CreateAgentPage() {
           Configure your autonomous trading agent. Once created, enroll it in a competition.
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Name */}
-          <div>
-            <label htmlFor="agent-name" className="block text-sm font-medium text-arena-text mb-2">
-              Agent Name
-            </label>
-            <input
-              id="agent-name"
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="e.g. AlphaStrike"
-              maxLength={32}
-              required
-              className="w-full bg-arena-deep border border-arena-border rounded-lg px-4 py-3 text-arena-text placeholder:text-arena-muted/50 focus:outline-none focus:border-arena-accent transition-colors"
-            />
-          </div>
-
-          {/* Strategy */}
-          <div>
-            <label className="block text-sm font-medium text-arena-text mb-2">
-              Strategy
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {STRATEGIES.map(s => (
-                <button
-                  key={s.value}
-                  type="button"
-                  onClick={() => setStrategy(s.value)}
-                  className={cn(
-                    'text-left p-4 rounded-lg border transition-all',
-                    strategy === s.value
-                      ? 'border-arena-accent bg-arena-accent/10'
-                      : 'border-arena-border bg-arena-deep hover:border-arena-accent/30'
-                  )}
-                >
-                  <p className="font-medium text-sm">{s.label}</p>
-                  <p className="text-arena-muted text-xs mt-1">{s.description}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={!name.trim() || submitting}
-            className={cn(
-              'w-full py-3 rounded-lg font-medium transition-colors',
-              name.trim() && !submitting
-                ? 'bg-arena-accent hover:bg-arena-accent/80 text-white'
-                : 'bg-arena-muted/20 text-arena-muted cursor-not-allowed'
-            )}
+        {/* Coming Soon Banner */}
+        <div className="bg-arena-blue/20 border border-arena-blue/40 rounded-xl p-5 mb-8">
+          <p className="text-arena-text font-medium mb-1">Coming Soon</p>
+          <p className="text-arena-muted text-sm">
+            Agent creation will be available when the arena launches on mainnet.
+            Browse existing competitions in the meantime.
+          </p>
+          <Link
+            href="/competitions"
+            className="inline-block mt-3 text-sm text-arena-accent hover:text-arena-accent/80 transition-colors font-medium"
           >
-            {submitting ? 'Creating Agent...' : 'Create Agent'}
-          </button>
-        </form>
+            Browse Competitions &rarr;
+          </Link>
+        </div>
+
+        <fieldset disabled className="opacity-60 cursor-not-allowed">
+          <div className="space-y-6">
+            {/* Name */}
+            <div>
+              <label htmlFor="agent-name" className="block text-sm font-medium text-arena-text mb-2">
+                Agent Name
+              </label>
+              <input
+                id="agent-name"
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="e.g. AlphaStrike"
+                maxLength={32}
+                className="w-full bg-arena-deep border border-arena-border rounded-lg px-4 py-3 text-arena-text placeholder:text-arena-muted/50 focus:outline-none focus:border-arena-accent transition-colors"
+              />
+            </div>
+
+            {/* Strategy */}
+            <div>
+              <label className="block text-sm font-medium text-arena-text mb-2">
+                Strategy
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {STRATEGIES.map(s => (
+                  <button
+                    key={s.value}
+                    type="button"
+                    onClick={() => setStrategy(s.value)}
+                    className={cn(
+                      'text-left p-4 rounded-lg border transition-all',
+                      strategy === s.value
+                        ? 'border-arena-accent bg-arena-accent/10'
+                        : 'border-arena-border bg-arena-deep hover:border-arena-accent/30'
+                    )}
+                  >
+                    <p className="font-medium text-sm">{s.label}</p>
+                    <p className="text-arena-muted text-xs mt-1">{s.description}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Submit (disabled) */}
+            <button
+              type="button"
+              disabled
+              className="w-full py-3 rounded-lg font-medium bg-arena-muted/20 text-arena-muted cursor-not-allowed"
+            >
+              Create Agent
+            </button>
+          </div>
+        </fieldset>
       </div>
     </PageContainer>
   );

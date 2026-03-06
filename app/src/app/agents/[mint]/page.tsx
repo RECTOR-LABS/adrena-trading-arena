@@ -4,13 +4,7 @@ import { useParams } from 'next/navigation';
 import { useAgent } from '@/hooks/useAgent';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { shortenAddress, formatUsd, formatNumber, cn } from '@/lib/utils';
-
-const statusColors: Record<string, string> = {
-  Active: 'bg-arena-success/20 text-arena-success',
-  Idle: 'bg-arena-muted/20 text-arena-muted',
-  Retired: 'bg-arena-accent/20 text-arena-accent',
-  Disqualified: 'bg-arena-accent/20 text-arena-accent',
-};
+import { agentStatusColors } from '@/lib/status-colors';
 
 export default function AgentProfilePage() {
   const params = useParams<{ mint: string }>();
@@ -51,7 +45,7 @@ export default function AgentProfilePage() {
           <span
             className={cn(
               'px-2 py-1 rounded text-xs font-medium',
-              statusColors[agent.status] ?? statusColors.Idle
+              agentStatusColors[agent.status] ?? agentStatusColors.Idle
             )}
           >
             {agent.status}
