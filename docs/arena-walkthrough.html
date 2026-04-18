@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Adrena Trading Arena — Technical Walkthrough</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #06060c;
+    --bg-surface: #0c0c14;
+    --bg-card: #111119;
+    --bg-elevated: #16161f;
+    --border: #1e1e2a;
+    --border-glow: #00e5ff15;
+    --cyan: #00e5ff;
+    --cyan-dim: #00e5ff88;
+    --cyan-glow: #00e5ff22;
+    --amber: #f59e0b;
+    --amber-dim: #f59e0b88;
+    --green: #22c55e;
+    --red: #ef4444;
+    --text: #e2e8f0;
+    --text-muted: #64748b;
+    --text-dim: #475569;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Plus Jakarta Sans', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html {
+    scroll-behavior: smooth;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) var(--bg-deep);
+  }
+
+  body {
+    background: var(--bg-deep);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* Noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* Scanline effect */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.03) 2px,
+      rgba(0, 0, 0, 0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 9998;
+  }
+
+  .container {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ---- HEADER ---- */
+  .header {
+    padding: 80px 0 60px;
+    text-align: center;
+    position: relative;
+  }
+
+  .header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    height: 400px;
+    background: radial-gradient(ellipse, var(--cyan-glow), transparent 70%);
+    pointer-events: none;
+  }
+
+  .header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--cyan);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+    background: var(--bg-card);
+  }
+
+  .header-badge .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--cyan);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--cyan); }
+    50% { opacity: 0.6; box-shadow: 0 0 8px 2px var(--cyan-dim); }
+  }
+
+  .header h1 {
+    font-family: var(--mono);
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin-bottom: 16px;
+    position: relative;
+  }
+
+  .header h1 span {
+    color: var(--cyan);
+  }
+
+  .header .subtitle {
+    font-size: 16px;
+    color: var(--text-muted);
+    max-width: 500px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* ---- NAV ---- */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--bg-deep);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: 0;
+  }
+
+  .nav-inner {
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .nav-inner::-webkit-scrollbar { display: none; }
+
+  .nav a {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: 14px 18px;
+    white-space: nowrap;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+
+  .nav a:hover {
+    color: var(--cyan);
+    border-bottom-color: var(--cyan);
+  }
+
+  /* ---- SECTIONS ---- */
+  section {
+    padding: 64px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  section:last-of-type { border-bottom: none; }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--cyan);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .section-title {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 24px;
+    letter-spacing: -0.01em;
+  }
+
+  /* ---- TLDR CARD ---- */
+  .tldr-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--cyan);
+    border-radius: 8px;
+    padding: 28px 32px;
+  }
+
+  .tldr-card p {
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.8;
+  }
+
+  .tldr-card strong {
+    color: var(--cyan);
+    font-weight: 600;
+  }
+
+  /* ---- FLOW ---- */
+  .flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-top: 32px;
+  }
+
+  .flow-step {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    gap: 20px;
+    position: relative;
+  }
+
+  .flow-step:not(:last-child) .flow-line {
+    position: absolute;
+    left: 23px;
+    top: 48px;
+    bottom: -1px;
+    width: 1px;
+    background: linear-gradient(to bottom, var(--cyan-dim), var(--border));
+  }
+
+  .flow-num {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--cyan);
+    flex-shrink: 0;
+  }
+
+  .flow-content {
+    padding: 8px 0 40px;
+  }
+
+  .flow-content h3 {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .flow-content p {
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  .flow-content .tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--cyan-glow);
+    color: var(--cyan);
+    border: 1px solid var(--cyan-dim);
+    margin-top: 8px;
+    letter-spacing: 0.04em;
+  }
+
+  .flow-content .tag.amber {
+    background: #f59e0b15;
+    color: var(--amber);
+    border-color: var(--amber-dim);
+  }
+
+  /* ---- Q&A ---- */
+  .qa-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+
+  .qa-question {
+    padding: 20px 24px;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .qa-question .q-tag {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--amber);
+    background: #f59e0b15;
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.06em;
+  }
+
+  .qa-answer {
+    padding: 20px 24px;
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.7;
+  }
+
+  .qa-answer strong {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .qa-answer code {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--bg-elevated);
+    padding: 2px 7px;
+    border-radius: 4px;
+    color: var(--cyan);
+    border: 1px solid var(--border);
+  }
+
+  .qa-answer ul {
+    margin: 8px 0;
+    padding-left: 20px;
+  }
+
+  .qa-answer li {
+    margin-bottom: 4px;
+  }
+
+  .qa-answer li::marker {
+    color: var(--cyan-dim);
+  }
+
+  /* ---- STATUS TABLE ---- */
+  .status-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 24px;
+    font-size: 13px;
+  }
+
+  .status-table th {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 12px 16px;
+    text-align: left;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .status-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  .status-table tr:last-child td { border-bottom: none; }
+
+  .status-table .feature {
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .status-table .desc {
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 100px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .status-pill.built {
+    color: var(--green);
+    background: #22c55e12;
+    border: 1px solid #22c55e33;
+  }
+
+  .status-pill.partial {
+    color: var(--amber);
+    background: #f59e0b12;
+    border: 1px solid #f59e0b33;
+  }
+
+  .status-pill.planned {
+    color: var(--text-dim);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+  }
+
+  .status-pill .pip {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  /* ---- ARCHITECTURE ---- */
+  .arch-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 24px;
+  }
+
+  .arch-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+  }
+
+  .arch-card .layer-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .arch-card .layer-tag .indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+  }
+
+  .arch-card h3 {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .arch-card p {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  .arch-card .tech {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+  }
+
+  .arch-card .tech span {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+
+  .arch-flow {
+    margin-top: 24px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+  }
+
+  .arch-flow pre {
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text-muted);
+    overflow-x: auto;
+  }
+
+  .arch-flow pre .hl { color: var(--cyan); }
+  .arch-flow pre .am { color: var(--amber); }
+  .arch-flow pre .gn { color: var(--green); }
+  .arch-flow pre .dm { color: var(--text-dim); }
+
+  /* ---- FOOTER ---- */
+  .footer {
+    padding: 48px 0;
+    text-align: center;
+  }
+
+  .footer p {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .footer a {
+    color: var(--cyan);
+    text-decoration: none;
+  }
+
+  .footer a:hover { text-decoration: underline; }
+
+  /* ---- RESPONSIVE ---- */
+  @media (max-width: 640px) {
+    .header { padding: 48px 0 40px; }
+    .header h1 { font-size: 24px; }
+    .arch-grid { grid-template-columns: 1fr; }
+    .nav a { padding: 12px 14px; }
+    section { padding: 40px 0; }
+  }
+
+  /* ---- FADE-IN ---- */
+  .fade-in {
+    opacity: 0;
+    transform: translateY(16px);
+    animation: fadeUp 0.5s ease-out forwards;
+  }
+
+  @keyframes fadeUp {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .fade-in:nth-child(1) { animation-delay: 0.05s; }
+  .fade-in:nth-child(2) { animation-delay: 0.1s; }
+  .fade-in:nth-child(3) { animation-delay: 0.15s; }
+  .fade-in:nth-child(4) { animation-delay: 0.2s; }
+  .fade-in:nth-child(5) { animation-delay: 0.25s; }
+  .fade-in:nth-child(6) { animation-delay: 0.3s; }
+  .fade-in:nth-child(7) { animation-delay: 0.35s; }
+  .fade-in:nth-child(8) { animation-delay: 0.4s; }
+  .fade-in:nth-child(9) { animation-delay: 0.45s; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="container">
+  <header class="header">
+    <div class="header-badge">
+      <span class="dot"></span>
+      Technical Walkthrough
+    </div>
+    <h1>Adrena <span>Trading Arena</span></h1>
+    <p class="subtitle">Answering your questions on architecture, agent mechanics, and the path to production.</p>
+  </header>
+</div>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="container">
+    <div class="nav-inner">
+      <a href="#tldr">TLDR</a>
+      <a href="#flow">How It Works</a>
+      <a href="#questions">Your Questions</a>
+      <a href="#status">Built vs Next</a>
+      <a href="#arch">Architecture</a>
+    </div>
+  </div>
+</nav>
+
+<!-- TLDR -->
+<section id="tldr">
+  <div class="container">
+    <div class="section-label">Overview</div>
+    <h2 class="section-title">TLDR</h2>
+    <div class="tldr-card fade-in">
+      <p>
+        The Arena lets users <strong>mint AI trading agents as NFTs</strong>, configure strategies (RSI, EMA, Bollinger, etc.), and enter competitions where agents trade <strong>real perpetual positions on Adrena</strong>. Every trade, every P&L, every liquidation is real.
+      </p>
+      <br>
+      <p>
+        Price data comes from <strong>Pyth Hermes</strong> (real-time feeds). Indicators are computed off-chain as pure functions. The agent's on-chain account tracks ELO rating, P&L, and win/loss record &mdash; all bound 1:1 to a <strong>Metaplex Core NFT</strong>.
+      </p>
+      <br>
+      <p>
+        Right now it's SDK-level (TypeScript config). A no-code UI for non-dev traders is the natural next step. The core trading loop, on-chain program, and scoring engine are all built and tested (234 tests, 0 warnings).
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="flow">
+  <div class="container">
+    <div class="section-label">User Flow</div>
+    <h2 class="section-title">How It Works</h2>
+
+    <div class="flow">
+      <div class="flow-step fade-in">
+        <div class="flow-num">01</div>
+        <div class="flow-content">
+          <h3>Mint an Agent NFT</h3>
+          <p>User creates an agent on-chain. This mints a Metaplex Core NFT and creates an Agent PDA (program-derived account) seeded from the NFT mint address. One NFT = one agent, permanently bound.</p>
+          <span class="tag">On-chain</span>
+        </div>
+        <div class="flow-line"></div>
+      </div>
+
+      <div class="flow-step fade-in">
+        <div class="flow-num">02</div>
+        <div class="flow-content">
+          <h3>Configure a Strategy</h3>
+          <p>Pick indicators (RSI, EMA, Bollinger, SMA), set thresholds and risk params: max leverage, stop-loss %, take-profit %, position size %, slippage tolerance. The strategy hash is stored on-chain.</p>
+          <span class="tag amber">SDK today &mdash; UI next</span>
+        </div>
+        <div class="flow-line"></div>
+      </div>
+
+      <div class="flow-step fade-in">
+        <div class="flow-num">03</div>
+        <div class="flow-content">
+          <h3>Enter a Competition</h3>
+          <p>Agent enrolls in a competition by paying an entry fee (SPL token transfer to a trustless prize vault PDA). Up to 256 agents per competition.</p>
+          <span class="tag">On-chain</span>
+        </div>
+        <div class="flow-line"></div>
+      </div>
+
+      <div class="flow-step fade-in">
+        <div class="flow-num">04</div>
+        <div class="flow-content">
+          <h3>Agent Trades Autonomously</h3>
+          <p>The AgentExecutor runs a tick-based loop: fetch prices from Pyth &rarr; compute indicators &rarr; evaluate strategy &rarr; open/close positions on Adrena's perpetual exchange. Real trades, real P&L.</p>
+          <span class="tag">Off-chain executor</span>
+        </div>
+        <div class="flow-line"></div>
+      </div>
+
+      <div class="flow-step fade-in">
+        <div class="flow-num">05</div>
+        <div class="flow-content">
+          <h3>Score &amp; Rank</h3>
+          <p>The orchestrator monitors positions via WebSocket, calculates risk-adjusted scores (not just raw P&L), and updates the leaderboard. ELO rating adjusts across competitions.</p>
+          <span class="tag">Orchestrator</span>
+        </div>
+        <div class="flow-line"></div>
+      </div>
+
+      <div class="flow-step fade-in">
+        <div class="flow-num">06</div>
+        <div class="flow-content">
+          <h3>Claim Prize</h3>
+          <p>Winner claims from the prize vault. Trustless &mdash; the on-chain program verifies final rank and releases funds. No intermediary.</p>
+          <span class="tag">On-chain</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- YOUR QUESTIONS -->
+<section id="questions">
+  <div class="container">
+    <div class="section-label">Q&amp;A</div>
+    <h2 class="section-title">Your Questions, Answered</h2>
+
+    <!-- Q1 -->
+    <div class="qa-item fade-in">
+      <div class="qa-question">
+        <span class="q-tag">Q1</span>
+        How are indicators calculated? From Adrena Price History or TradingView? Can they be used for backtesting?
+      </div>
+      <div class="qa-answer">
+        <strong>Pyth Hermes API</strong> &mdash; real-time price feeds, no TradingView in the loop. Indicators (RSI, EMA, SMA, Bollinger Bands) are <strong>pure functions</strong> that operate on price arrays fetched from Pyth.
+        <br><br>
+        Currently we keep the last 1,000 price points in memory for indicator calculation. For proper backtesting, we'd need a persistent price history layer &mdash; either our own storage or hooking into Adrena's existing price history. This is a buildable next step, not a fundamental architecture change.
+      </div>
+    </div>
+
+    <!-- Q2 -->
+    <div class="qa-item fade-in">
+      <div class="qa-question">
+        <span class="q-tag">Q2</span>
+        What if I want to combine 2 or more indicators?
+      </div>
+      <div class="qa-answer">
+        Already supported. Each strategy has an <code>evaluate(market)</code> function that can use <strong>any combination of indicators</strong>. The Momentum strategy, for example, uses both fast and slow EMA crossover detection. You could build a strategy that checks RSI + Bollinger + EMA together &mdash; it's just logic inside the evaluate function.
+        <br><br>
+        The strategy interface is flexible by design &mdash; it receives full market state and returns a signal (LONG, SHORT, CLOSE, or HOLD).
+      </div>
+    </div>
+
+    <!-- Q3 -->
+    <div class="qa-item fade-in">
+      <div class="qa-question">
+        <span class="q-tag">Q3</span>
+        Can I set agent parameters in a UI, or do I need to code?
+      </div>
+      <div class="qa-answer">
+        <strong>Right now: code-level (TypeScript SDK).</strong> You define a strategy and pass a config object with risk parameters:
+        <ul>
+          <li>Indicator selection (RSI, EMA, Bollinger, SMA)</li>
+          <li>Thresholds (e.g. RSI &lt; 30 = go long, RSI &gt; 70 = go short)</li>
+          <li><code>maxLeverage</code>, <code>stopLossPct</code>, <code>takeProfitPct</code></li>
+          <li><code>maxPositionPct</code> (% of collateral to deploy)</li>
+          <li><code>defaultSlippageBps</code></li>
+        </ul>
+        Your RSI agent example (5min chart, 5% collateral, 10x leverage, long &lt;30, short &gt;70, SL at -5%, close at RSI 50) maps directly to this config. A <strong>no-code frontend</strong> where traders fill out a form that produces this config is a straightforward next step &mdash; the architecture already supports it.
+      </div>
+    </div>
+
+    <!-- Q4 -->
+    <div class="qa-item fade-in">
+      <div class="qa-question">
+        <span class="q-tag">Q4</span>
+        How is this different from plain algo trading? What does the NFT/Agent layer actually add?
+      </div>
+      <div class="qa-answer">
+        Fair question. Without the NFT layer, it's just a bot. With it, you get:
+        <ul>
+          <li><strong>Portable identity</strong> &mdash; the agent has an on-chain track record (ELO rating, total P&L, wins, losses) that lives on the NFT. It follows the asset, not the owner.</li>
+          <li><strong>Composable competitions</strong> &mdash; agents enroll in competitions with entry fees and trustless prize payouts. The on-chain program handles everything.</li>
+          <li><strong>Tradeable performance</strong> &mdash; if an agent has a proven track record, the NFT itself becomes valuable. A buyer inherits the strategy + verified performance history.</li>
+          <li><strong>Native to Adrena</strong> &mdash; agents open/close positions through Adrena's actual instructions. They're first-class participants in the ecosystem, not external bots.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Q5 -->
+    <div class="qa-item fade-in">
+      <div class="qa-question">
+        <span class="q-tag">Q5</span>
+        What's the link between my agent, the Metaplex NFT, and my wallet?
+      </div>
+      <div class="qa-answer">
+        <ul>
+          <li><strong>NFT mint</strong> &rarr; A Metaplex Core NFT is created during agent creation (new keypair).</li>
+          <li><strong>Agent PDA</strong> &rarr; On-chain account seeded from the NFT mint address: <code>[AGENT_SEED, mint]</code>. This is a 1:1 binding &mdash; can't be separated.</li>
+          <li><strong>Agent account stores</strong> &rarr; owner pubkey, mint address, strategy_hash, elo_rating, total_pnl, wins, losses, status.</li>
+          <li><strong>Wallet</strong> &rarr; Currently the owner's wallet signs all trades directly. A dedicated agent PDA wallet (for capital isolation &mdash; "allocate X SOL to this agent") is a natural next step.</li>
+        </ul>
+        Transfer the NFT = transfer ownership of the agent and its entire track record.
+      </div>
+    </div>
+
+    <!-- Q6 -->
+    <div class="qa-item fade-in">
+      <div class="qa-question">
+        <span class="q-tag">Q6</span>
+        If the strategy is embedded in the NFT, can the owner change it before selling? Freeze authority?
+      </div>
+      <div class="qa-answer">
+        The <code>strategy_hash</code> is stored on-chain in the Agent account. This means anyone can verify what strategy an agent is running by comparing the hash.
+        <br><br>
+        For a marketplace to work with trust, we'd need:
+        <ul>
+          <li><strong>Freeze authority</strong> on the strategy &mdash; once frozen, the strategy can't be modified. This is architecturally supported but not yet implemented.</li>
+          <li><strong>On-chain verification</strong> that the running strategy actually matches the stored hash.</li>
+          <li>A clear flow: create agent &rarr; prove performance &rarr; freeze strategy &rarr; list for sale.</li>
+        </ul>
+        The primitives are there (hash storage, ownership transfer via NFT). The freeze + verification layer is buildable.
+      </div>
+    </div>
+
+    <!-- Q7 -->
+    <div class="qa-item fade-in">
+      <div class="qa-question">
+        <span class="q-tag">Q7</span>
+        Can I allocate capital to an agent separately? On/off switch? Sub-wallet?
+      </div>
+      <div class="qa-answer">
+        <strong>Not yet, but the architecture supports it.</strong> The current model has the owner signing trades directly with their own wallet. The vision you're describing &mdash; "I allocate 5 SOL to this agent, it trades with that, I can turn it on/off" &mdash; would need:
+        <ul>
+          <li>A <strong>dedicated agent vault</strong> (PDA-controlled token account) where users deposit capital</li>
+          <li><strong>Delegation</strong> so the executor can trade on behalf of the agent without the owner signing every tx</li>
+          <li>An <strong>on/off status</strong> on the agent account (the <code>status</code> field already exists)</li>
+        </ul>
+        This is the most impactful next feature for making it feel like a real product rather than a dev tool.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATUS TABLE -->
+<section id="status">
+  <div class="container">
+    <div class="section-label">Roadmap</div>
+    <h2 class="section-title">Built vs. What's Next</h2>
+
+    <table class="status-table">
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>Status</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="feature">On-chain program (Anchor)</td>
+          <td><span class="status-pill built"><span class="pip"></span>Built</span></td>
+          <td class="desc">Agent creation, competitions, enrollment, prize vaults, scoring. Deployed to devnet.</td>
+        </tr>
+        <tr>
+          <td class="feature">Trading strategies</td>
+          <td><span class="status-pill built"><span class="pip"></span>Built</span></td>
+          <td class="desc">Momentum, Mean Reversion, Breakout, Scalper. Composable indicator system.</td>
+        </tr>
+        <tr>
+          <td class="feature">Pyth price feeds</td>
+          <td><span class="status-pill built"><span class="pip"></span>Built</span></td>
+          <td class="desc">Real-time via Hermes API. SOL, BTC, ETH. 1000-point history for indicators.</td>
+        </tr>
+        <tr>
+          <td class="feature">AgentExecutor (auto trading)</td>
+          <td><span class="status-pill built"><span class="pip"></span>Built</span></td>
+          <td class="desc">Tick-based autonomous loop. Configurable interval (30s&ndash;5min default).</td>
+        </tr>
+        <tr>
+          <td class="feature">Adrena position integration</td>
+          <td><span class="status-pill built"><span class="pip"></span>Built</span></td>
+          <td class="desc">LiveAdrenaTrader: opens/closes real perp positions on Adrena. WebSocket position monitor.</td>
+        </tr>
+        <tr>
+          <td class="feature">Metaplex NFT minting</td>
+          <td><span class="status-pill built"><span class="pip"></span>Built</span></td>
+          <td class="desc">Core NFT minted on agent creation. 1:1 bound to Agent PDA.</td>
+        </tr>
+        <tr>
+          <td class="feature">Scoring &amp; leaderboard</td>
+          <td><span class="status-pill built"><span class="pip"></span>Built</span></td>
+          <td class="desc">Risk-adjusted scoring, ELO rating system, orchestrator-managed.</td>
+        </tr>
+        <tr>
+          <td class="feature">Test suite</td>
+          <td><span class="status-pill built"><span class="pip"></span>Built</span></td>
+          <td class="desc">234 tests across all layers. 0 warnings.</td>
+        </tr>
+        <tr>
+          <td class="feature">No-code UI for traders</td>
+          <td><span class="status-pill planned"><span class="pip"></span>Next</span></td>
+          <td class="desc">Frontend form &rarr; strategy config. Non-devs can create and manage agents.</td>
+        </tr>
+        <tr>
+          <td class="feature">Dedicated agent wallets</td>
+          <td><span class="status-pill planned"><span class="pip"></span>Next</span></td>
+          <td class="desc">PDA vault per agent for capital isolation. Deposit/withdraw. On/off control.</td>
+        </tr>
+        <tr>
+          <td class="feature">Strategy freeze &amp; verification</td>
+          <td><span class="status-pill planned"><span class="pip"></span>Next</span></td>
+          <td class="desc">Immutable strategy lock for marketplace trust. Hash verification on-chain.</td>
+        </tr>
+        <tr>
+          <td class="feature">Backtesting engine</td>
+          <td><span class="status-pill planned"><span class="pip"></span>Next</span></td>
+          <td class="desc">Persistent price history + strategy replay. "Sandbox" mode.</td>
+        </tr>
+        <tr>
+          <td class="feature">Agent marketplace</td>
+          <td><span class="status-pill planned"><span class="pip"></span>Next</span></td>
+          <td class="desc">Buy/sell agent NFTs. Performance-based pricing. Commission structure.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section id="arch">
+  <div class="container">
+    <div class="section-label">System Design</div>
+    <h2 class="section-title">Architecture</h2>
+
+    <div class="arch-grid">
+      <div class="arch-card fade-in">
+        <div class="layer-tag">
+          <span class="indicator" style="background: var(--cyan)"></span>
+          <span style="color: var(--cyan)">Layer 1</span>
+        </div>
+        <h3>On-Chain Program</h3>
+        <p>Anchor/Rust. Manages agents, competitions, enrollments, prize vaults, and scoring. Single source of truth for all state.</p>
+        <div class="tech">
+          <span>Anchor 0.32</span>
+          <span>Metaplex Core</span>
+          <span>SPL Token</span>
+        </div>
+      </div>
+
+      <div class="arch-card fade-in">
+        <div class="layer-tag">
+          <span class="indicator" style="background: var(--amber)"></span>
+          <span style="color: var(--amber)">Layer 2</span>
+        </div>
+        <h3>TypeScript SDK</h3>
+        <p>Client library for interacting with the program. Contains strategies, indicators, AgentExecutor, LiveAdrenaTrader, and price feed integration.</p>
+        <div class="tech">
+          <span>TypeScript</span>
+          <span>Pyth Hermes</span>
+          <span>Vitest</span>
+        </div>
+      </div>
+
+      <div class="arch-card fade-in">
+        <div class="layer-tag">
+          <span class="indicator" style="background: var(--green)"></span>
+          <span style="color: var(--green)">Layer 3</span>
+        </div>
+        <h3>Orchestrator</h3>
+        <p>Rust backend service. Manages competition lifecycle, monitors positions via WebSocket, calculates scores, and maintains the leaderboard.</p>
+        <div class="tech">
+          <span>Rust</span>
+          <span>WebSocket</span>
+          <span>PostgreSQL</span>
+        </div>
+      </div>
+
+      <div class="arch-card fade-in">
+        <div class="layer-tag">
+          <span class="indicator" style="background: var(--red)"></span>
+          <span style="color: var(--red)">Layer 4</span>
+        </div>
+        <h3>Frontend</h3>
+        <p>Next.js web app. Dashboard for creating agents, entering competitions, viewing leaderboards, and monitoring live performance.</p>
+        <div class="tech">
+          <span>Next.js</span>
+          <span>React</span>
+          <span>Tailwind</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="arch-flow fade-in">
+      <pre>
+<span class="dm">  ┌──────────────┐</span>       <span class="dm">┌──────────────┐</span>       <span class="dm">┌──────────────┐</span>
+<span class="dm">  │</span>  <span class="hl">Frontend</span>    <span class="dm">│──────▶│</span>    <span class="am">SDK</span>       <span class="dm">│──────▶│</span>  <span class="gn">On-Chain</span>    <span class="dm">│</span>
+<span class="dm">  │</span>  Next.js     <span class="dm">│</span>       <span class="dm">│</span>  TypeScript  <span class="dm">│</span>       <span class="dm">│</span>  Anchor      <span class="dm">│</span>
+<span class="dm">  └──────────────┘</span>       <span class="dm">└──────┬───────┘</span>       <span class="dm">└──────────────┘</span>
+                                <span class="dm">│</span>
+                    <span class="dm">┌───────────┼───────────┐</span>
+                    <span class="dm">│</span>           <span class="dm">│</span>           <span class="dm">│</span>
+              <span class="dm">┌─────┴─────┐ ┌───┴────┐ ┌──┴───────────┐</span>
+              <span class="dm">│</span> <span class="hl">Pyth</span>      <span class="dm">│ │</span> <span class="am">Adrena</span> <span class="dm">│ │</span> <span class="gn">Orchestrator</span> <span class="dm">│</span>
+              <span class="dm">│</span> Hermes    <span class="dm">│ │</span> Perps  <span class="dm">│ │</span> Scoring      <span class="dm">│</span>
+              <span class="dm">└───────────┘ └────────┘ └──────────────┘</span>
+
+  <span class="dm">Price feeds      Positions       Competition lifecycle</span>
+  <span class="dm">Indicators       P&L             Leaderboard</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="container">
+    <p>Adrena Trading Arena &mdash; built by <a href="https://github.com/RECTOR-LABS">RECTOR LABS</a></p>
+    <p style="margin-top: 8px; color: var(--text-dim);">Questions? Let's talk in the Discord channel.</p>
+  </div>
+</footer>
+
+</body>
+</html>
